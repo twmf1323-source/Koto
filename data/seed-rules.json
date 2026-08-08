@@ -1,0 +1,184 @@
+﻿[
+    {
+        "id":  "seed-ichidan-overview",
+        "title":  "一段動詞怎麼辨認",
+        "category":  "動詞類型",
+        "explanation":  "一段動詞（いちだん）辞書形多以「る」結尾，且前一拍為い段或え段（見る・食べる・起きる）。活用時去掉「る」得連用語幹，再接ます／て／た／ない等。與五段「る」動詞（帰る・切る）易混，需記例外或查辭典。",
+        "requiresConjugation":  false,
+        "conjugation":  {
+                            "ichidan":  "",
+                            "godan":  "",
+                            "sahen":  ""
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-godan-overview",
+        "title":  "五段動詞怎麼辨認",
+        "category":  "動詞類型",
+        "explanation":  "五段動詞（ごだん）辞書形以う段音結尾。活用時語尾在同一行的ア・イ・ウ・エ・オ段之間變化。て／た形用音便（見「五段て・た形音便」）。「帰る・切る・知る」等雖以る結尾但是五段。",
+        "requiresConjugation":  false,
+        "conjugation":  {
+                            "ichidan":  "",
+                            "godan":  "",
+                            "sahen":  ""
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-godan-onbin",
+        "title":  "五段て・た形音便",
+        "category":  "活用",
+        "explanation":  "五段動詞變成て形／た形時，語尾不直接加て／た，而依行發生音便：\n\n・い音便：く→いて／いた（行く例外→行って／行った）、ぐ→いで／いだ\n・促音便：う・つ・る→って／った\n・撥音便：ぬ・ぶ・む→んで／んだ\n・す→して／した（較規則）\n\nた形與て形同一套，只是て→た、で→だ。",
+        "requiresConjugation":  false,
+        "conjugation":  {
+                            "ichidan":  "",
+                            "godan":  "",
+                            "sahen":  ""
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-ichidan-masu",
+        "title":  "ます形（丁寧形）",
+        "category":  "活用",
+        "explanation":  "動詞連用形＋ます，表禮貌。否定「ません」、過去「ました」、過去否定「ませんでした」。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "去る＋ます",
+                            "godan":  "イ段＋ます",
+                            "sahen":  "し＋ます"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-godan-te",
+        "title":  "て形",
+        "category":  "活用",
+        "explanation":  "連接動作、表請求（〜てください）或組成 ている 等。五段音便規則見「五段て・た形音便」。た形同規則（て→た、で→だ）。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "語幹＋て",
+                            "godan":  "音便（見音便規則）",
+                            "sahen":  "して"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-nai-form",
+        "title":  "ない形（否定）",
+        "category":  "活用",
+        "explanation":  "表否定。丁寧否定用ません。ある 的否定是「ない」（例外）。五段う段語尾＋ない時為「わ」（買わない）。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "語幹＋ない",
+                            "godan":  "ア段＋ない",
+                            "sahen":  "しない"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-ba-form",
+        "title":  "ば形（假定）",
+        "category":  "活用",
+        "explanation":  "假定條件。一段用「れば」；五段用語尾エ段＋ば。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "語幹＋れば",
+                            "godan":  "エ段＋ば",
+                            "sahen":  "すれば"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-suru",
+        "title":  "する（サ変動詞）基本活用",
+        "category":  "動詞類型",
+        "explanation":  "する是サ行變格。複合動詞（勉強する、料理する）依「する」變化。カ変「来る」另記。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "—",
+                            "godan":  "—",
+                            "sahen":  "し／せ／すれ 等不規則"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-kuru",
+        "title":  "来る（カ変動詞）基本活用",
+        "category":  "動詞類型",
+        "explanation":  "来る（くる）是カ行變格，讀音與寫法都不規則：きます／きて／きた／こない／くれば。需整組記憶，不列入三格。",
+        "requiresConjugation":  false,
+        "conjugation":  {
+                            "ichidan":  "",
+                            "godan":  "",
+                            "sahen":  ""
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-iku",
+        "title":  "行く て形例外",
+        "category":  "活用",
+        "explanation":  "行く是五段，て／た形例外：行って／行った（非「いいて」）。屬促音便例外，見音便規則時一併記。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "—",
+                            "godan":  "音便例外（促音）",
+                            "sahen":  "—"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-teiru",
+        "title":  "〜ている（進行／結果狀態）",
+        "category":  "助動詞",
+        "explanation":  "動詞て形＋いる。表動作進行或變化後狀態持續。口語常約音「てる」。丁寧：ています。五段て形先依音便規則。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "て形＋いる",
+                            "godan":  "音便て形＋いる",
+                            "sahen":  "して＋いる"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-temo-ii",
+        "title":  "〜てもいい（許可）",
+        "category":  "句型",
+        "explanation":  "て形＋もいい（です）。表示許可。否定許可用「〜てはいけない／だめ」。五段て形先依音便規則。",
+        "requiresConjugation":  true,
+        "conjugation":  {
+                            "ichidan":  "て形＋もいい",
+                            "godan":  "音便て形＋もいい",
+                            "sahen":  "して＋もいい"
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    },
+    {
+        "id":  "seed-wa-ga",
+        "title":  "助詞 は／が 對比",
+        "category":  "助詞",
+        "explanation":  "「は」標主題／對比焦點；「が」標新資訊主語或對象（好きだ、分かる、ある／いる 前常用が）。",
+        "requiresConjugation":  false,
+        "conjugation":  {
+                            "ichidan":  "",
+                            "godan":  "",
+                            "sahen":  ""
+                        },
+        "created_at":  "2026-01-01T00:00:00.000Z",
+        "updated_at":  "2026-01-01T00:00:00.000Z"
+    }
+]

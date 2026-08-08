@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="日語文法筆記本 — API 文法盤點；動詞類型／活用三格；專案與查詢歷史"
+    />
+    <title>Koto · 日語文法筆記本</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">言</div>
+          <div>
+            <h1>Koto</h1>
+            <p class="brand-sub">
+              日語文法 · API 盤點 ·
+              <span id="app-rule-count">0</span> 筆規則 ·
+              <span id="tokenizer-status" class="tokenizer-status" title="形態素分析狀態">分詞準備中</span>
+            </p>
+          </div>
+        </div>
+        <nav class="main-nav" aria-label="主要導覽">
+          <button type="button" class="nav-btn active" data-view="lookup">查詢</button>
+          <button type="button" class="nav-btn" data-view="history">歷史</button>
+          <button
+            type="button"
+            class="nav-btn"
+            id="nav-projects"
+            data-action="projects"
+            title="開啟專案列表；若已在專案中則回到該專案"
+          >
+            專案
+          </button>
+          <button type="button" class="nav-btn" data-view="rules">規則筆記本</button>
+          <button type="button" class="nav-btn" data-view="todos">待辦</button>
+          <button type="button" class="nav-btn" data-view="settings">
+            設定
+            <span id="api-status-dot" class="api-status-dot" title="API 未設定" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="nav-btn" data-view="form" id="nav-form-hidden" hidden>表單</button>
+        </nav>
+      </header>
+
+      <main class="app-main">
+        <!-- 查詢 -->
+        <section id="view-lookup" class="view">
+          <div class="view-header view-header-lookup">
+            <div class="view-header-lookup-top">
+              <div class="view-header-main">
+                <h2>文法查詢</h2>
+                <p id="lookup-mode-desc" class="lookup-mode-status">
+                  輸入單詞或整句。右側可切換 API／本地模式。
+                </p>
+              </div>
+              <div class="lookup-mode-toolbar" aria-label="查詢模式">
+                <div class="lookup-mode-toolbar-head">
+                  <span class="lookup-mode-toolbar-title">查詢模式</span>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-secondary settings-mode-all-btn"
+                    id="btn-settings-modes-all"
+                    aria-pressed="false"
+                    title="一次開啟 API 文法＋單字（關閉本地）或全部關閉"
+                  >
+                    全部開啟
+                  </button>
+                </div>
+                <div class="lookup-mode-chips" role="group" aria-label="模式開關">
+                  <label
+                    class="lookup-mode-chip"
+                    for="settings-mode-api-grammar"
+                    title="API 文法排查（與本地互斥，需 Key）"
+                  >
+                    <input type="checkbox" id="settings-mode-api-grammar" role="switch" />
+                    <span class="settings-switch-ui" aria-hidden="true"></span>
+                    <span class="lookup-mode-chip-text">API 文法</span>
+                  </label>
+                  <label
+                    class="lookup-mode-chip"
+                    for="settings-mode-api-vocab"
+                    title="API 單字查詢（可與文法並用，需 Key）"
+                  >
+                    <input type="checkbox" id="settings-mode-api-vocab" role="switch" />
+                    <span class="settings-switch-ui" aria-hidden="true"></span>
+                    <span class="lookup-mode-chip-text">API 單字</span>
+                  </label>
+                  <label
+                    class="lookup-mode-chip"
+                    for="settings-mode-local-grammar"
+                    title="本地文法排查（與 API 文法互斥，免 Key）"
+                  >
+                    <input type="checkbox" id="settings-mode-local-grammar" role="switch" />
+                    <span class="settings-switch-ui" aria-hidden="true"></span>
+                    <span class="lookup-mode-chip-text">本地文法</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="project-mode-bar" class="project-mode-bar hidden" role="status">
+            <div class="project-mode-bar-main">
+              <span class="project-mode-badge" aria-hidden="true">專案</span>
+              <span class="project-mode-name" id="project-mode-name">—</span>
+              <span class="project-mode-pos muted" id="project-mode-pos"></span>
+            </div>
+            <div class="project-mode-bar-actions">
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-project-entries">
+                句子列表
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost" id="btn-project-leave">
+                離開專案
+              </button>
+            </div>
+          </div>
+
+          <form id="lookup-form" class="lookup-bar lookup-bar-sentence" autocomplete="off">
+            <label class="sr-only" for="lookup-input">查詢內容</label>
+            <div class="lookup-input-wrap">
+              <textarea
+                id="lookup-input"
+                name="form"
+                rows="2"
+                placeholder="單詞：食べます&#10;整句：昨日友達と映画を見た。"
+                spellcheck="false"
+                autocapitalize="off"
+                required
+                title="Enter 查詢，Shift+Enter 換行"
+              ></textarea>
+            </div>
+            <div class="lookup-seq-nav" id="lookup-seq-nav" aria-label="句子導覽">
+              <button
+                type="button"
+                class="lookup-hist-btn lookup-seq-btn"
+                id="btn-lookup-seq-prev"
+                title="上一號句子"
+                aria-label="上一號句子"
+                hidden
+              >
+                <span class="lookup-hist-btn-icon" aria-hidden="true">←</span>
+              </button>
+              <span class="lookup-seq-label" id="lookup-seq-label" hidden aria-live="polite"></span>
+              <button
+                type="button"
+                class="lookup-hist-btn lookup-seq-btn"
+                id="btn-lookup-seq-next"
+                title="再看歷史中的上一句（本機紀錄）"
+                aria-label="再看歷史上一句"
+              >
+                <span class="lookup-hist-btn-icon" aria-hidden="true">→</span>
+              </button>
+            </div>
+            <button type="submit" class="btn btn-primary">查詢</button>
+          </form>
+
+          <div id="lookup-result" class="lookup-result" aria-live="polite"></div>
+        </section>
+
+        <!-- 查詢歷史 -->
+        <section id="view-history" class="view hidden">
+          <div class="view-header row">
+            <div>
+              <h2>查詢歷史</h2>
+              <p id="history-count">最近查過的句子（本機）。「再看一次」會用當時盤點、依目前筆記本重分已收錄／未收錄。</p>
+            </div>
+            <div class="header-actions">
+              <button type="button" class="btn btn-danger-ghost" id="btn-clear-history">清空歷史</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <input
+              id="history-filter"
+              type="search"
+              placeholder="搜尋歷史句子、摘要…"
+              autocomplete="off"
+            />
+          </div>
+          <div id="history-list"></div>
+        </section>
+
+        <!-- 規則列表 -->
+        <section id="view-rules" class="view hidden">
+          <div class="view-header row">
+            <div>
+              <h2>規則筆記本</h2>
+              <p id="rules-count">0 筆規則</p>
+            </div>
+            <div class="header-actions">
+              <button type="button" class="btn btn-primary" id="btn-new-rule">＋ 新增規則</button>
+            </div>
+          </div>
+
+          <div class="filter-bar">
+            <input id="rules-filter" type="search" placeholder="篩選規則名、分類、說明…" />
+          </div>
+
+          <div id="rules-list"></div>
+        </section>
+
+        <!-- 表單（保留三格，不做文法可視化） -->
+        <section id="view-form" class="view hidden">
+          <div class="view-header">
+            <h2 id="form-heading">新增規則</h2>
+            <p id="form-sub">規則名、分類、詳細說明；若需動詞變化則填三格指示</p>
+          </div>
+
+          <div id="form-prefill-banner" class="result-banner info hidden"></div>
+
+          <form id="rule-form" class="rule-form">
+            <div class="form-grid form-grid-simple">
+              <div class="field full">
+                <span>規則名 <em>*</em></span>
+                <div class="title-row">
+                  <input
+                    id="form-title"
+                    required
+                    placeholder="例如：一段動詞ます形、〜てもいい、助詞 は／が"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-ai"
+                    id="btn-ai-complete"
+                    title="依規則名呼叫 API 自動填寫說明與三格"
+                  >
+                    <span class="ai-btn-icon" aria-hidden="true">✦</span>
+                    <span class="ai-btn-label">AI 自動填寫</span>
+                  </button>
+                </div>
+                <small class="hint">填好規則名後按「AI 自動填寫」，會用設定中的 API Key 補齊下方欄位。</small>
+              </div>
+
+              <label class="field full">
+                <span>分類</span>
+                <select id="form-category">
+                  <option value="">（未分類）</option>
+                  <option value="動詞類型">動詞類型</option>
+                  <option value="活用">活用</option>
+                  <option value="助動詞">助動詞</option>
+                  <option value="句型">句型</option>
+                  <option value="助詞">助詞</option>
+                  <option value="形容詞">形容詞</option>
+                  <option value="其他">其他</option>
+                </select>
+              </label>
+
+              <label class="field full">
+                <span>詳細說明</span>
+                <textarea
+                  id="form-explanation"
+                  rows="5"
+                  placeholder="用法、結構、例外、記憶要點…&#10;可在說明中夾日文例句。"
+                ></textarea>
+              </label>
+
+              <div class="field full conj-toggle-field">
+                <label class="checkbox-row">
+                  <input type="checkbox" id="form-requires-conjugation" />
+                  <span>此文法需要<strong>動詞變化</strong>（顯示三格指示）</span>
+                </label>
+                <small class="hint">勾選後填寫一段／五段／サ変各自如何變化。助詞等不需動詞活用則不必勾。</small>
+              </div>
+
+              <div id="form-conjugation-block" class="field full conj-block hidden">
+                <span class="conj-block-label">動詞變化指示（三格）</span>
+                <p class="hint endings-hint">
+                  只寫<strong>變化規則</strong>，不要舉例。五段寫「ア／イ／エ／オ段」或「音便」即可；音便細節另建「音便規則」卡片。
+                </p>
+                <div class="conj-grid" role="group" aria-label="一段・五段・サ変 變化指示">
+                  <label class="conj-cell conj-ichidan">
+                    <span class="conj-key">一段動詞</span>
+                    <textarea
+                      id="form-conj-ichidan"
+                      rows="2"
+                      placeholder="去る＋ます"
+                      spellcheck="false"
+                    ></textarea>
+                  </label>
+                  <label class="conj-cell conj-godan">
+                    <span class="conj-key">五段動詞</span>
+                    <textarea
+                      id="form-conj-godan"
+                      rows="2"
+                      placeholder="イ段＋ます／ア段＋ない／音便"
+                      spellcheck="false"
+                    ></textarea>
+                  </label>
+                  <label class="conj-cell conj-sahen">
+                    <span class="conj-key">サ変動詞</span>
+                    <textarea
+                      id="form-conj-sahen"
+                      rows="2"
+                      placeholder="し＋ます／して／しない"
+                      spellcheck="false"
+                    ></textarea>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">儲存規則</button>
+              <button type="button" class="btn btn-secondary" id="btn-form-cancel">取消</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- 待辦 -->
+        <section id="view-todos" class="view hidden">
+          <div class="view-header">
+            <h2>待辦清單</h2>
+            <p>API 盤點「尚未收錄」可加入此處。「建立規則」並儲存後會自動清除對應待辦。</p>
+          </div>
+          <div id="todos-list"></div>
+        </section>
+
+        <!-- 設定 -->
+        <section id="view-settings" class="view hidden">
+          <div class="view-header">
+            <h2>設定</h2>
+            <p>API Key、三格配色；表單可用「AI 自動填寫」。查詢模式請在「查詢」頁切換。</p>
+          </div>
+
+          <form id="settings-form" class="rule-form settings-form" autocomplete="off">
+            <div class="form-grid form-grid-simple">
+              <label class="field full">
+                <span>API Key <em id="settings-api-key-req">*</em></span>
+                <div class="secret-row">
+                  <input
+                    id="settings-api-key"
+                    type="password"
+                    placeholder="貼上你的 XAI_API_KEY"
+                    spellcheck="false"
+                    autocomplete="off"
+                  />
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-key" aria-pressed="false">
+                    顯示
+                  </button>
+                </div>
+                <small class="hint">
+                  金鑰存在本機瀏覽器 localStorage，不會上傳到本專案伺服器。請勿在公用電腦儲存。
+                  申請：
+                  <a href="https://console.x.ai" target="_blank" rel="noopener noreferrer">console.x.ai</a>
+                </small>
+              </label>
+
+              <label class="field full">
+                <span>API Base URL</span>
+                <input
+                  id="settings-base-url"
+                  type="url"
+                  placeholder="https://api.x.ai/v1"
+                  spellcheck="false"
+                />
+                <small class="hint">預設為 SpaceXAI / xAI：<code>https://api.x.ai/v1</code>（OpenAI 相容）</small>
+              </label>
+
+              <label class="field full">
+                <span>模型</span>
+                <input
+                  id="settings-model"
+                  type="text"
+                  placeholder="grok-4.5"
+                  spellcheck="false"
+                />
+                <small class="hint">預設 <code>grok-4.5</code>，可改為主控台提供的其他模型名稱。</small>
+              </label>
+
+              <div class="settings-status-box" id="settings-status" aria-live="polite">
+                <span class="settings-status-label">狀態</span>
+                <span id="settings-status-text">尚未儲存設定</span>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">儲存設定</button>
+              <button type="button" class="btn btn-secondary" id="btn-test-api">測試連線</button>
+              <button type="button" class="btn btn-ghost" id="btn-clear-key">清除 Key</button>
+            </div>
+          </form>
+
+          <section class="rule-form settings-data-panel" aria-labelledby="settings-theme-heading">
+            <h3 id="settings-theme-heading" class="settings-panel-title">三格／分析配色</h3>
+            <p class="hint settings-data-hint">
+              選擇一段／五段／サ変三格與分析面板的配色。點選即預覽並儲存。
+            </p>
+            <div id="structure-theme-picker" class="theme-picker" role="radiogroup" aria-label="三格配色"></div>
+            <div class="theme-preview-wrap">
+              <p class="theme-preview-label">預覽</p>
+              <div id="structure-theme-preview" class="structure-formula-host"></div>
+            </div>
+          </section>
+
+          <section class="rule-form settings-data-panel" aria-labelledby="settings-data-heading">
+            <h3 id="settings-data-heading" class="settings-panel-title">資料管理</h3>
+            <p class="hint settings-data-hint">
+              備份或還原<strong>規則筆記本</strong>與<strong>專案</strong>（同一 JSON）。重設種子只清規則與待辦，不會清除 API Key 與專案。
+              形態素分析使用專案內 <code>dict/</code> 與 <code>vendor/kuromoji.js</code>。
+            </p>
+            <div class="form-actions settings-data-actions">
+              <button type="button" class="btn btn-secondary" id="btn-export">匯出 JSON</button>
+              <button type="button" class="btn btn-secondary" id="btn-import">匯入 JSON</button>
+              <input type="file" id="import-file" accept="application/json,.json" hidden />
+              <button
+                type="button"
+                class="btn btn-danger-ghost"
+                id="btn-reset-seed"
+                title="清除本地規則並重載種子資料"
+              >
+                重設種子
+              </button>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <p>
+          Koto · 日語文法 · API 盤點 · 專案 · 三格 · 歷史與待辦存在本機 · kuromoji 形態素分析
+        </p>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <!-- 專案：列表／建立／刪除 -->
+    <div
+      id="projects-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="projects-modal-title"
+    >
+      <div class="modal-panel projects-modal-panel">
+        <header class="modal-header">
+          <div>
+            <h2 id="projects-modal-title">專案</h2>
+            <p class="modal-sub">
+              適合歌詞、對話等連貫文本。進入後查詢會依序編號，句子永久保存在專案內（不寫入一般歷史）。
+            </p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm modal-close" id="btn-projects-modal-close" aria-label="關閉">
+            關閉
+          </button>
+        </header>
+
+        <div class="project-create-row">
+          <label class="sr-only" for="project-new-name">新專案名稱</label>
+          <input
+            id="project-new-name"
+            type="text"
+            placeholder="新專案名稱，例如：某首歌"
+            maxlength="80"
+            autocomplete="off"
+          />
+          <button type="button" class="btn btn-primary" id="btn-project-create">建立</button>
+        </div>
+
+        <div id="projects-list" class="projects-list"></div>
+        <p class="modal-sub" style="margin:0">
+          專案備份請到「設定 → 資料管理」與規則一併匯出／匯入。
+        </p>
+      </div>
+    </div>
+
+    <!-- 專案內句子列表（刪除／再看） -->
+    <div
+      id="project-entries-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="project-entries-modal-title"
+    >
+      <div class="modal-panel project-entries-modal-panel">
+        <header class="modal-header">
+          <div>
+            <h2 id="project-entries-modal-title">專案句子</h2>
+            <p class="modal-sub" id="project-entries-modal-sub">序號在建立後永久固定；刪除後不重編。</p>
+          </div>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm modal-close"
+            id="btn-project-entries-modal-close"
+            aria-label="關閉"
+          >
+            關閉
+          </button>
+        </header>
+
+        <div class="project-entries-toolbar">
+          <label class="sr-only" for="project-entries-filter">搜尋句子或序號</label>
+          <input
+            id="project-entries-filter"
+            type="search"
+            class="project-entries-filter"
+            placeholder="搜尋日文／摘要，或輸入序號（如 3）"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <span class="project-entries-filter-stat" id="project-entries-filter-stat" aria-live="polite"></span>
+        </div>
+
+        <div id="project-entries-list" class="project-entries-list-host"></div>
+      </div>
+    </div>
+
+    <!-- 選字／已標片段：套用規則（同一片段可疊加多則） -->
+    <div id="sel-apply-pop" class="sel-apply-pop hidden" role="dialog" aria-label="套用規則">
+      <span class="sel-apply-text" id="sel-apply-text"></span>
+      <span class="sel-apply-note muted hidden" id="sel-apply-note"></span>
+      <button type="button" class="btn btn-sm btn-primary" id="btn-sel-apply-rule">套用規則</button>
+      <button type="button" class="btn btn-sm btn-secondary" id="btn-sel-vocab">單字解釋</button>
+      <button type="button" class="btn btn-sm btn-secondary hidden" id="btn-sel-view-rule">
+        查看規則
+      </button>
+      <button type="button" class="btn btn-sm btn-ghost" id="btn-sel-apply-cancel">取消</button>
+    </div>
+
+    <!-- 手動編輯單字資訊 -->
+    <div
+      id="vocab-edit-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vocab-edit-modal-title"
+    >
+      <div class="modal-panel vocab-edit-modal-panel">
+        <header class="modal-header">
+          <div>
+            <h2 id="vocab-edit-modal-title">單字解釋</h2>
+            <p class="modal-sub">
+              選取：<strong id="vocab-edit-span-preview" class="rule-pick-span"></strong>
+              — 可手動填寫或 AI 補齊；儲存後寫入本句詞彙（hover 可見）。
+            </p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm modal-close" id="btn-vocab-edit-close" aria-label="關閉">
+            關閉
+          </button>
+        </header>
+        <div id="vocab-edit-banner" class="result-banner info hidden" role="status"></div>
+        <form id="vocab-edit-form" class="rule-form" autocomplete="off">
+          <div class="form-grid form-grid-simple">
+            <label class="field full">
+              <span>表面形</span>
+              <input id="vocab-edit-surface" type="text" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>讀音（平假名）</span>
+              <input id="vocab-edit-reading" type="text" placeholder="有漢字建議填" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>原形（詞典形）</span>
+              <input id="vocab-edit-lemma" type="text" placeholder="動詞・形容詞" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>外來語原文</span>
+              <input id="vocab-edit-origin" type="text" placeholder="如 coffee（非外來語可空）" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>詞性</span>
+              <input
+                id="vocab-edit-pos"
+                type="text"
+                list="vocab-edit-pos-list"
+                placeholder="動詞・五段／名詞…"
+                spellcheck="false"
+              />
+              <datalist id="vocab-edit-pos-list">
+                <option value="動詞・一段"></option>
+                <option value="動詞・五段"></option>
+                <option value="動詞・サ変"></option>
+                <option value="動詞・カ変"></option>
+                <option value="形容詞・い"></option>
+                <option value="形容詞・な"></option>
+                <option value="名詞"></option>
+                <option value="副詞"></option>
+                <option value="代詞"></option>
+                <option value="數詞"></option>
+                <option value="其他"></option>
+              </datalist>
+            </label>
+            <label class="field full">
+              <span>中文意思</span>
+              <input id="vocab-edit-gloss" type="text" placeholder="簡短繁中義" spellcheck="false" />
+            </label>
+          </div>
+          <div class="form-actions vocab-edit-actions">
+            <button type="button" class="btn btn-secondary" id="btn-vocab-edit-ai">AI 填寫</button>
+            <button type="submit" class="btn btn-primary">儲存到本句</button>
+            <button type="button" class="btn btn-ghost" id="btn-vocab-edit-cancel">取消</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div
+      id="rule-pick-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rule-pick-modal-title"
+    >
+      <div class="modal-panel rule-pick-modal-panel">
+        <header class="modal-header">
+          <div>
+            <h2 id="rule-pick-modal-title">套用規則</h2>
+            <p class="modal-sub">
+              選取片段：<strong id="rule-pick-span-preview" class="rule-pick-span"></strong>
+              — 依選取字<strong>本地</strong>推送可能規則置頂；只影響本句，不改筆記本。
+            </p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm modal-close" id="btn-rule-pick-close" aria-label="關閉">
+            關閉
+          </button>
+        </header>
+        <div class="project-create-row">
+          <label class="sr-only" for="rule-pick-filter">搜尋規則</label>
+          <input
+            id="rule-pick-filter"
+            type="search"
+            placeholder="搜尋規則名、分類…"
+            autocomplete="off"
+          />
+        </div>
+        <div class="rule-pick-create-bar">
+          <p class="panel-note rule-pick-create-hint">
+            沒有合適規則卡？用選取字<strong>建立新規則</strong>（名稱可再改；儲存後會套用到此片段）。
+          </p>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-rule-pick-create">
+            建立新規則
+          </button>
+        </div>
+        <div id="rule-pick-list" class="rule-pick-list"></div>
+      </div>
+    </div>
+
+    <script src="vendor/kuromoji.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/tokenizer-ja.js"></script>
+    <script src="js/analyzer.js"></script>
+    <script src="js/rules.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

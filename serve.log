@@ -1,0 +1,43 @@
+﻿[18:08:21] Serving C:\Users\Gary\Desktop\日語文法筆記本
+[18:08:21] URL http://127.0.0.1:8765/
+[18:08:22] 200 index.html (13751)
+[18:08:22] 200 css\styles.css (20993)
+[18:08:22] 200 js\app.js (29011)
+[18:08:22] 200 data\seed-rules.json (4607)
+[18:08:22] 200 vendor\kuromoji.js (307967)
+[18:08:25] 200 dict\base.dat.gz (3956825)
+[18:08:26] 200 index.html (13751)
+[18:09:56] Serving C:\Users\Gary\Desktop\日語文法筆記本
+[18:09:56] URL http://127.0.0.1:8765/
+[18:09:57] 200 index.html (13751)
+[18:09:57] 200 css\styles.css (20993)
+[18:09:57] 200 vendor\kuromoji.js (307967)
+[18:09:57] 200 index.html (13751)
+[18:09:57] 200 css\styles.css (20993)
+[18:09:57] 200 vendor\kuromoji.js (307967)
+[18:09:57] 200 js\storage.js (4152)
+[18:09:57] 200 js\tokenizer-ja.js (8583)
+[18:09:57] 200 js\analyzer.js (19408)
+[18:09:57] 200 js\rules.js (17385)
+[18:09:57] 200 js\ai.js (5812)
+[18:09:57] 200 js\app.js (29011)
+[18:09:57] 200 dict\base.dat.gz (3956825)
+[18:09:58] 200 dict\check.dat.gz (3111633)
+[18:09:58] 200 dict\tid.dat.gz (1605820)
+[18:09:58] 200 dict\tid_pos.dat.gz (5916009)
+[18:09:58] 200 dict\tid_map.dat.gz (1485576)
+[18:09:58] 200 dict\cc.dat.gz (1692067)
+[18:09:58] 200 dict\unk.dat.gz (10512)
+[18:09:58] 200 dict\unk_pos.dat.gz (10540)
+[18:09:58] 200 dict\unk_map.dat.gz (1190)
+[18:09:58] 200 dict\unk_char.dat.gz (306)
+[18:09:58] 200 dict\unk_compat.dat.gz (338)
+[18:09:58] 200 dict\unk_invoke.dat.gz (1140)
+[18:09:58] 200 data\seed-rules.json (4607)
+[18:09:58] 404 favicon.ico
+[18:10:56] Serving C:\Users\Gary\Desktop\日語文法筆記本
+[18:10:56] URL http://127.0.0.1:8765/
+[18:10:57] 200 index.html (13751)
+[18:11:07] 200 index.html (13751)
+[18:11:07] 200 css\styles.css (20993)
+[18:11:07] 200 vendor\kuromoji.js (307967)
