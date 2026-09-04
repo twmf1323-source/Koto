@@ -89,7 +89,9 @@ while ($true) {
     $res.ContentLength64 = $info.Length
     $res.SendChunked = $false
     try { $res.Headers["Access-Control-Allow-Origin"] = "*" } catch {}
-    try { $res.Headers["Cache-Control"] = "public, max-age=120" } catch {}
+    # html／js／css 不長快取，避免舊版畫面被瀏覽器留著
+    $cc = if ($full -match '\.(html?|js|css)$') { "no-cache, must-revalidate" } else { "public, max-age=120" }
+    try { $res.Headers["Cache-Control"] = $cc } catch {}
 
     # Stream file in chunks (stable for multi-MB dict)
     $fs = [IO.File]::OpenRead($full)

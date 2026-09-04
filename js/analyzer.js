@@ -834,6 +834,12 @@ const Analyzer = (() => {
         const isTeDe =
           (n.text === "て" || n.text === "で") &&
           (n.pos === "助詞" || n.pos === "助動詞" || /接続/.test(n.pos_detail || ""));
+        // 終助詞／語氣（っけ・かな・よ…）不是動詞活用，不可併進鏈
+        const isFinalMood =
+          /終助/.test(n.pos_detail || "") ||
+          /^(っけ|かしら|かな|かも|よね|よな|よ|ね|ぞ|さ|わ)$/.test(n.text);
+        if (isFinalMood) break;
+        if (n.pos === "助詞" && !isTeDe) break;
 
         if (n.pos === "助動詞" || isAuxVerb || (n.pos_detail && /非自立/.test(n.pos_detail))) {
           end += 1;

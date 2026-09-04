@@ -59,6 +59,98 @@ const RulesService = (() => {
     return Boolean(conj.ichidan || conj.godan || conj.sahen);
   }
 
+  /**
+   * 判斷結構式零件角色（槽位／標記／變化）
+   * 例：去る＋ます、イ段＋ない、し＋ます、音便
+   */
+  function structureRoleOfPart(text, asResult) {
+    const p = String(text || "").trim();
+    if (!p) return "neutral";
+    if (asResult) return "result";
+    if (/音便|促音|撥音|い音便|融合|變段|变段/.test(p)) return "transform";
+    if (
+      /^(語幹|詞幹|去る|連用形|辞書形|終止形|連體形|連体形|未然形|仮定形|命令形|イ段|ア段|エ段|オ段|ウ段|一段(?:動詞)?|五段(?:動詞)?|サ変(?:動詞)?|カ変(?:動詞)?|名詞|動詞|形容詞|い形容詞|な形容詞|て形|た形|ない形|ます形|し|き|こ|する)([（(].*)?$/.test(
+        p
+      )
+    ) {
+      return "slot";
+    }
+    if (
+      /^(語幹|詞幹|去る|連用形|辞書形|イ段|ア段|エ段|オ段|ウ段|一段|五段|名詞|動詞|形容詞)/.test(p)
+    ) {
+      return "slot";
+    }
+    if (/[\u3040-\u30ff\u4e00-\u9fff]/.test(p)) return "affix";
+    return "neutral";
+  }
+
+  /**
+   * 單條變化鏈 token（＋ 組合、→ 結果）
+   */
+  function parseStructureChain(segment) {
+    const raw = String(segment || "").trim().normalize("NFC");
+    if (!raw) return [];
+
+    const ARROW = /\s*(?:→|⟶|➜|->|⇒)\s*/;
+    const sides = raw.split(ARROW);
+    const tokens = [];
+
+    function pushPlusJoined(seg, asResult) {
+      const parts = String(seg || "")
+        .split(/\s*[＋+]\s*/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      parts.forEach((p, i) => {
+        if (i > 0) tokens.push({ op: "plus" });
+        tokens.push({ op: "part", text: p, role: structureRoleOfPart(p, asResult) });
+      });
+    }
+
+    if (sides.length >= 2) {
+      pushPlusJoined(sides[0], false);
+      tokens.push({ op: "arrow", text: "→" });
+      pushPlusJoined(sides.slice(1).join("→").trim(), true);
+    } else {
+      pushPlusJoined(raw, false);
+    }
+    return tokens;
+  }
+
+  /**
+   * 結構式：可多條變化並排，用 ／ 或「兩側有空白的 /」分開
+   * （ア/イ 中間無空白的 / 不會被拆）
+   */
+  function parseStructureBranches(structure) {
+    const raw = String(structure || "").trim().normalize("NFC");
+    if (!raw) return { branches: [] };
+
+    const parts = raw
+      .split(/\s*[／｜|]\s*|(?<=\S)\s+\/\s+(?=\S)/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const branchStrs = parts.length ? parts : [raw];
+    return {
+      branches: branchStrs.map((b) => ({
+        tokens: parseStructureChain(b),
+        kind: "normal",
+        label: "",
+      })),
+    };
+  }
+
+  function parseStructureTokens(structure) {
+    const { branches } = parseStructureBranches(structure);
+    if (!branches.length) return [];
+    if (branches.length === 1) return branches[0].tokens;
+    const flat = [];
+    branches.forEach((br, i) => {
+      if (i > 0) flat.push({ op: "slash", text: "／" });
+      flat.push(...br.tokens);
+    });
+    return flat;
+  }
+
   const NOISY_SHORT = new Set([
     "る", "う", "く", "す", "つ", "ぬ", "む", "ぐ", "ぶ",
     "た", "だ", "て", "で", "な", "に", "を", "は", "が", "も",
@@ -101,6 +193,65 @@ const RulesService = (() => {
     return "r_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9);
   }
 
+  /**
+   * 規則名標準：中文功能（日文）
+   * 把「わ(提示主題)」「て（請求）」等日文在前的寫法翻轉。
+   */
+  function parseTitleParenParts(title) {
+    const raw = String(title || "").trim();
+    const m = raw.match(/^(.+?)\s*[\(（](.+?)[\)）]\s*$/);
+    if (!m) return null;
+    return { outer: m[1].trim(), inner: m[2].trim() };
+  }
+
+  function hasKana(s) {
+    return /[\u3040-\u30ff]/.test(s);
+  }
+
+  function hasHan(s) {
+    return /[\u4e00-\u9fff]/.test(s);
+  }
+
+  function looksJapaneseMarker(s) {
+    const t = String(s || "").trim();
+    if (!t) return false;
+    if (hasKana(t)) return true;
+    return /^[〜~ー・／\/\sはがをにでへとやもよりだけしかまでからっ]+$/.test(t);
+  }
+
+  function looksChineseFunction(s) {
+    const t = String(s || "").trim();
+    if (!t || hasKana(t)) return false;
+    return hasHan(t);
+  }
+
+  function normalizeRuleTitle(title) {
+    const raw = String(title || "").trim();
+    const parts = parseTitleParenParts(raw);
+    if (!parts) return raw;
+    const { outer, inner } = parts;
+    const cleanMarker = (s) =>
+      String(s || "")
+        .replace(/^〜/, "")
+        .replace(/形$/, "")
+        .trim();
+
+    if (looksJapaneseMarker(outer) && looksChineseFunction(inner)) {
+      const zh = inner.replace(/形$/, "").trim() || inner;
+      const ja = cleanMarker(outer) || outer;
+      return `${zh}（${ja}）`;
+    }
+    if (hasKana(outer) && looksChineseFunction(inner)) {
+      const zh = inner.replace(/形$/, "").trim() || inner;
+      const ja = cleanMarker(outer) || outer;
+      return `${zh}（${ja}）`;
+    }
+    if (looksChineseFunction(outer) && looksJapaneseMarker(inner)) {
+      return `${outer}（${cleanMarker(inner) || inner}）`;
+    }
+    return `${outer}（${inner}）`;
+  }
+
   function normalizeRule(input, existing = null) {
     const now = new Date().toISOString();
     const isUpdate = Boolean(existing);
@@ -121,7 +272,8 @@ const RulesService = (() => {
 
     return {
       id: existing?.id || input?.id || uid(),
-      title: (input?.title || existing?.title || "").trim() || "未命名規則",
+      title:
+        normalizeRuleTitle(input?.title || existing?.title || "") || "未命名規則",
       category: String(input?.category ?? existing?.category ?? "").trim(),
       explanation: (input?.explanation ?? existing?.explanation ?? "").trim(),
       requiresConjugation,
@@ -163,8 +315,53 @@ const RulesService = (() => {
       .replace(/\s+/g, "");
   }
 
+  /**
+   * 用於判斷「同一個規則標題」的鍵。
+   * 畫面看起來相同的標題可能混有全形括號／斜線、BOM 或零寬字元，
+   * 這些不應讓已建立的卡片被判成未建立。
+   */
+  function canonicalRuleTitleKey(raw) {
+    return String(raw || "")
+      .normalize("NFKC")
+      .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+      .replace(/[\s\u00A0\u3000]+/g, "")
+      .replace(/[\u2215\u2044、／]/g, "/")
+      .replace(/[～~]/g, "〜")
+      .toLowerCase();
+  }
+
   function ruleBlob(rule) {
     return [rule.title, rule.explanation, rule.category].filter(Boolean).join("\n");
+  }
+
+  /** 句尾語氣／終助詞（不是文法本身）。か 是疑問助詞，不可當「多餘語氣」剝掉 */
+  const TRAILING_MOOD_CHUNK = /(?:っけ|かしら|かな|かも知れない|かもしれない|かも|よね|よな|ってば|けれど|けれど|けど)+$/;
+  const TRAILING_MOOD_CHAR = /[よねぞさわのん]$/;
+
+  /** 句中必須對到獨立詞、不可當「～か／～は」黏在別的詞尾 */
+  const EXACT_TOKEN_PARTICLES = new Set(["は", "が", "を", "に", "も", "へ", "の", "と", "や", "か"]);
+
+  function stripTrailingMood(form, opts = {}) {
+    let s = normalizeToken(form);
+    if (!s) return s;
+    const keep = new Set(opts.keep || []);
+    for (let i = 0; i < 6; i++) {
+      let next = s.replace(TRAILING_MOOD_CHUNK, "");
+      const last = next.slice(-1);
+      if (last && !keep.has(last) && TRAILING_MOOD_CHAR.test(last)) {
+        next = next.slice(0, -1);
+      }
+      if (next === s) break;
+      s = next;
+    }
+    return s;
+  }
+
+  function isOnlyTrailingMood(extra) {
+    const e = normalizeToken(extra);
+    if (!e) return true;
+    // 接辭後面的疑問「か」算語氣（ていますか）；但標「か」本身時不可先剝掉
+    return stripTrailingMood(e.replace(/か+$/, "")) === "";
   }
 
   /** 去掉文中的 ている 系寫法，避免「ています」被當成「ます」 */
@@ -196,8 +393,10 @@ const RulesService = (() => {
   function isTeiruKey(key) {
     const k = normalizeToken(key);
     if (!k) return false;
+    // 單獨「て／で」是て形或助詞，不是 ている 接辭
+    if (k === "て" || k === "で") return false;
     return (
-      /^(?:て|で)(?:い)?(?:る|た|て|ます|ました|ません)?$/.test(k) ||
+      /^(?:て|で)(?:い)?(?:る|た|て|ます|ました|ません)$/.test(k) ||
       /てる|でる|ている|でいる|ていま|でいま|ていた|でいた/.test(k)
     );
   }
@@ -276,7 +475,8 @@ const RulesService = (() => {
    * 例：食べている → teForm 食べて（0..3）、pattern いる 標在接辭段（避免吞掉動詞）
    */
   function locateTeiruInSurface(surface) {
-    const s = normalizeToken(surface);
+    const raw = normalizeToken(surface);
+    const s = stripTrailingMood(raw.replace(/か+$/, "")) || raw;
     const split = splitTeiruCompound(s);
     if (!split) return null;
     if (split.purePattern) {
@@ -309,6 +509,91 @@ const RulesService = (() => {
         teForm,
         tePart: s.slice(0, s.length - key.length),
       };
+    }
+    return null;
+  }
+
+  /**
+   * 從標題括號抽出日文標記（丁寧（ます）→ ます；音便（て／た）→ て, た）
+   */
+  function titleMarkersFromRule(rule) {
+    const parts = parseTitleParenParts(rule?.title || "");
+    if (!parts?.inner) return [];
+    return String(parts.inner)
+      .split(/[／/・、,]+/)
+      .map((s) =>
+        String(s || "")
+          .replace(/^[〜～~\-–—]+/, "")
+          .replace(/形$/, "")
+          .trim()
+      )
+      .filter((b) => {
+        if (!b) return false;
+        if (looksJapaneseMarker(b)) return true;
+        if (/^[\u3040-\u30FFー]+$/.test(b)) return true;
+        return b.length <= 8 && /[\u3040-\u30FF]/.test(b);
+      });
+  }
+
+  /** 標題詞尾的實際表面形（て 含音便 んで／って；ば 含エ段ば） */
+  function expandTitleMarkerNeedles(marker) {
+    const m = normalizeToken(String(marker || "").replace(/^[〜～~\-–—]+/, ""));
+    if (!m) return [];
+    const out = new Set([m]);
+    if (m === "て") {
+      ["って", "んで", "いて", "いで", "して"].forEach((x) => out.add(x));
+    } else if (m === "た") {
+      ["った", "んだ", "いた", "いだ", "した"].forEach((x) => out.add(x));
+    } else if (m === "ば") {
+      ["れば", "えば", "けば", "げば", "せば", "てば", "ねば", "べば", "めば"].forEach((x) =>
+        out.add(x)
+      );
+    } else if (m === "ます") {
+      ["ました", "ません", "ませんでした"].forEach((x) => out.add(x));
+    } else if (m === "ない") {
+      ["なかった", "なければ", "ぬ"].forEach((x) => out.add(x));
+    } else if (m === "たい") {
+      ["たかった", "たくない"].forEach((x) => out.add(x));
+    } else if (m === "ている" || m === "てる") {
+      TEIRU_SUFFIXES.forEach((x) => out.add(x));
+    } else if (m === "てもいい") {
+      out.add("でもいい");
+    } else if (m === "てください") {
+      out.add("でください");
+    }
+    return [...out];
+  }
+
+  const PARTICLE_MARKERS = new Set([
+    "は", "が", "を", "に", "で", "と", "も", "へ", "の", "から", "まで", "より", "や", "か",
+  ]);
+
+  function isParticleRule(rule) {
+    if (!rule) return false;
+    if (String(rule.category || "") === "助詞") return true;
+    const markers = titleMarkersFromRule(rule);
+    if (!markers.length) return false;
+    return markers.every((m) => {
+      const n = normalizeToken(String(m || "").replace(/^[〜～~\-–—]+/, ""));
+      return Boolean(n) && PARTICLE_MARKERS.has(n);
+    });
+  }
+
+  /** 圈選片段是否對到規則標題詞尾 */
+  function spanHitsTitleMarker(sel, marker) {
+    const f = normalizeToken(sel);
+    const m = normalizeToken(String(marker || "").replace(/^[〜～~\-–—]+/, ""));
+    if (!f || !m) return null;
+    if (f === m) return { needle: m, exact: true };
+    const needles = expandTitleMarkerNeedles(m).sort((a, b) => b.length - a.length);
+    for (const n of needles) {
+      if (!n) continue;
+      // ました 不要被當成 た形的「した／た」
+      if ((n === "した" || n === "た") && /ました$/.test(f) && f !== n) continue;
+      if (f === n) return { needle: n, exact: true };
+      if (f.endsWith(n) && (n.length >= 2 || f.length > n.length)) {
+        return { needle: n, exact: false };
+      }
     }
     return null;
   }
@@ -362,6 +647,26 @@ const RulesService = (() => {
     if (/ない形/.test(title) || (/ない/.test(title) && !/てい|でい|てる/.test(title))) {
       addAll(["なければ", "なかった", "ない"]);
     }
+    if (/て形/.test(title) && !/ている|てる|てもいい|てください/.test(title)) {
+      addAll(["って", "んで", "いて", "いで", "して"]);
+      keys.add("〜て");
+    }
+    if (/た形/.test(title) && !/たら/.test(title)) {
+      addAll(["った", "んだ", "いた", "いだ", "した"]);
+      keys.add("〜た");
+    }
+    if (/ば形/.test(title) || (/假定|条件/.test(title) && /ば/.test(title))) {
+      addAll(["れば", "えば", "けば", "げば", "せば", "てば", "ねば", "べば", "めば"]);
+      keys.add("〜ば");
+    }
+
+    // 標題括號詞尾：て形（て）→ 〜て／んで／って；假定（ば）→ 〜ば
+    for (const marker of titleMarkersFromRule(rule)) {
+      for (const n of expandTitleMarkerNeedles(marker)) {
+        if (n.length >= 2 && !NOISY_SHORT.has(n)) keys.add(n);
+        else if (n.length === 1) keys.add("〜" + n);
+      }
+    }
 
     const tildeRe = /[〜～~]([^\s・，。、（）()【】\[\]]+)/g;
     let tm;
@@ -377,6 +682,19 @@ const RulesService = (() => {
     const titleJa = title.match(jaRe) || [];
     for (const s of titleJa) {
       if (s.length >= 2 && s.length <= 6 && !NOISY_SHORT.has(s)) keys.add(s);
+    }
+
+    // 助詞：只用標題標記（を／は／ので…），說明例句／標題中文不可當掃描鍵
+    if (isParticleRule(rule)) {
+      const markerBare = new Set();
+      titleMarkersFromRule(rule).forEach((m) => {
+        const n = normalizeToken(String(m).replace(/^[〜～~\-–—]+/, ""));
+        if (n) markerBare.add(n);
+      });
+      return [...keys].filter((k) => {
+        const bare = normalizeToken(String(k).replace(/^[〜～~\-–—]+/, ""));
+        return markerBare.has(bare) || PARTICLE_MARKERS.has(bare);
+      });
     }
 
     // 說明：不收「動詞＋ている」複合（避免整段當鍵）
@@ -397,42 +715,115 @@ const RulesService = (() => {
     return [...keys];
   }
 
+  function needlesForHit(hit) {
+    const set = new Set();
+    const add = (raw) => {
+      const n = normalizeToken(String(raw || "").replace(/^[〜～~\-–—]+/, ""));
+      if (!n) return;
+      set.add(n);
+      expandTitleMarkerNeedles(n).forEach((x) => {
+        const z = normalizeToken(String(x).replace(/^[〜～~\-–—]+/, ""));
+        if (z) set.add(z);
+      });
+    };
+    if (hit?.matchedKey) add(hit.matchedKey);
+    const rule = hit?.rule;
+    if (rule) {
+      titleMarkersFromRule(rule).forEach(add);
+      if (ruleIsTeiruTopic(rule)) TEIRU_SUFFIXES.forEach((x) => set.add(x));
+      if (!isParticleRule(rule)) {
+        extractMatchKeys(rule).forEach(add);
+      }
+    }
+    [
+      "てもいいです", "でもいいです", "てもいい", "でもいい",
+      "てはいけない", "ではいけない", "てください", "でください",
+    ].forEach((x) => {
+      if (set.has(x) || (hit?.matchedKey && String(hit.matchedKey).includes(x.slice(0, 2)))) set.add(x);
+    });
+    return [...set].sort((a, b) => b.length - a.length || a.localeCompare(b));
+  }
+
+  function findNeedleInSlice(slice, needles) {
+    let best = null;
+    for (const n of needles) {
+      if (!n) continue;
+      let from = 0;
+      while (from <= slice.length) {
+        const idx = slice.indexOf(n, from);
+        if (idx < 0) break;
+        const after = slice.slice(idx + n.length);
+        if (isOnlyTrailingMood(after)) {
+          const cand = { start: idx, end: idx + n.length, n };
+          if (
+            !best ||
+            cand.end - cand.start > best.end - best.start ||
+            (cand.end - cand.start === best.end - best.start && cand.start > best.start)
+          ) {
+            best = cand;
+          }
+        }
+        from = idx + 1;
+      }
+    }
+    return best;
+  }
+
   /**
-   * 句型命中時：把標註區間縮成接辭，绝不含動詞語幹
+   * 把標註縮成文法標記本身：不含動詞語幹、不含句尾っけ／かな
    */
-  function shrinkSpanToPatternOnly(query, start, end, hit) {
-    const slice = query.slice(start, end);
+  function shrinkSpanToGrammarMarker(query, start, end, hit) {
+    let slice = query.slice(start, end);
     if (!slice) return { start, end };
 
+    const needles = needlesForHit(hit);
+    // 先在原片段找標記（疑問「か」不可先被當語氣剝掉）
+    const found0 = findNeedleInSlice(slice, needles);
+    if (found0 && found0.end - found0.start >= 1 && found0.end - found0.start < slice.length) {
+      return { start: start + found0.start, end: start + found0.end };
+    }
+
+    const keep = needles.filter((n) => n.length === 1);
+    const stripped = stripTrailingMood(slice, { keep });
+    if (stripped && stripped.length < slice.length && slice.startsWith(stripped)) {
+      end = start + stripped.length;
+      slice = stripped;
+    }
+
     const loc = locateTeiruInSurface(slice);
-    if (loc && loc.localEnd > loc.localStart) {
-      // localStart>0 表示前面有て形語幹，只標後面接辭
+    const teiruHit =
+      ruleIsTeiruTopic(hit?.rule) ||
+      hit?.layer === "pattern" ||
+      isPatternRule(hit?.rule) ||
+      (hit?.matchedKey && (isTeiruKey(hit.matchedKey) || TEIRU_SUFFIXES.includes(hit.matchedKey)));
+    if (teiruHit && loc && loc.localEnd > loc.localStart) {
       if (loc.localStart > 0 || (loc.teForm && loc.teForm.length > 0)) {
         return { start: start + loc.localStart, end: start + loc.localEnd };
       }
+      return { start, end: start + loc.localEnd };
     }
 
-    for (const suf of TEIRU_SUFFIXES) {
-      if (slice.endsWith(suf) && slice.length > suf.length) {
-        return { start: end - suf.length, end };
-      }
+    const found = findNeedleInSlice(slice, needles);
+    if (found && found.end - found.start >= 1 && found.end - found.start < slice.length) {
+      return { start: start + found.start, end: start + found.end };
     }
 
-    const mk = hit?.matchedKey || hit?.form || "";
-    if (mk && (isTeiruKey(mk) || TEIRU_SUFFIXES.includes(mk))) {
-      if (slice.endsWith(mk) && slice.length > mk.length) {
-        return { start: end - mk.length, end };
-      }
-    }
-
-    // てもいい 等
-    for (const suf of ["てもいいです", "でもいいです", "てもいい", "でもいい", "てはいけない", "ではいけない"]) {
-      if (slice.endsWith(suf) && slice.length > suf.length) {
-        return { start: end - suf.length, end };
+    if (teiruHit) {
+      for (const suf of TEIRU_SUFFIXES) {
+        const idx = slice.lastIndexOf(suf);
+        if (idx < 0) continue;
+        if (!isOnlyTrailingMood(slice.slice(idx + suf.length))) continue;
+        if (slice.length > suf.length) {
+          return { start: start + idx, end: start + idx + suf.length };
+        }
       }
     }
 
     return { start, end };
+  }
+
+  function shrinkSpanToPatternOnly(query, start, end, hit) {
+    return shrinkSpanToGrammarMarker(query, start, end, hit);
   }
 
   /**
@@ -441,7 +832,7 @@ const RulesService = (() => {
    * - 以 〜／- 開頭的當後綴
    * - 或 form 以 key 結尾（語尾）
    */
-  function formHitsKey(form, key) {
+  function formHitsKey(form, key, opts = {}) {
     const f = normalizeToken(form);
     let raw = String(key || "").trim();
     if (!f || !raw) return false;
@@ -456,13 +847,31 @@ const RulesService = (() => {
       if (f !== k) return false;
     }
 
-    if (NOISY_SHORT.has(k) && k.length <= 1 && f !== k) return false;
+    // 標題「〜て」這類後綴鍵：允許吃掉 NOISY_SHORT（否則 食べて 對不到 て）
+    if (NOISY_SHORT.has(k) && k.length <= 1 && f !== k && !isSuffixPat) return false;
 
-    const hit =
+    // 句中：は／が／を／か… 必須是獨立詞。禁止「いつしか」詞尾の「か」、「から」裡的「か」
+    if (opts.sentenceMode && EXACT_TOKEN_PARTICLES.has(k) && f !== k) {
+      return false;
+    }
+
+    const extraAfterKeyIsMood = () => {
+      const idx = f.indexOf(k);
+      if (idx < 0) return false;
+      return isOnlyTrailingMood(f.slice(idx + k.length));
+    };
+
+    let hit =
       f === k ||
       (isSuffixPat && f.endsWith(k) && f.length >= k.length) ||
       (!isSuffixPat && f.endsWith(k) && f.length > k.length) ||
-      (!isSuffixPat && f.includes(k) && k.length >= 2 && f.length <= k.length + 6);
+      (!isSuffixPat && k.length >= 2 && f.includes(k) && extraAfterKeyIsMood());
+
+    // て／た 音便：読んで・行って 也算對到標題詞尾「て」「た」
+    if (!hit && (isSuffixPat || k.length === 1)) {
+      if (k === "て" && /(?:って|んで|いて|いで|して)$/.test(f)) hit = true;
+      if (k === "た" && /(?:った|んだ|いた|いだ|した)$/.test(f)) hit = true;
+    }
 
     if (!hit) return false;
 
@@ -471,6 +880,11 @@ const RulesService = (() => {
 
     // 「ます」鍵：ています 不算ます形
     if ((k === "ます" || k === "ました" || k === "ません" || k === "ませんでした") && isTeiruSurface(f)) {
+      return false;
+    }
+
+    // ました 不要命中 た形的「した／た」
+    if ((k === "した" || k === "た") && /ました$/.test(f) && f !== k) {
       return false;
     }
 
@@ -511,6 +925,10 @@ const RulesService = (() => {
     const isTeiruCompoundQuery =
       teiruTopic && isTeiruSurface(f) && !isTeiruKey(f) && !TEIRU_SUFFIXES.includes(f);
 
+    // 句中助詞規則：不要用「說明裡出現整段 n-gram」去圈（空を、いつしか）
+    if (sentenceMode && isParticleRule(rule) && f.length > 1) {
+      /* fall through to keys only */
+    } else {
     // 完整出現在標題
     if (f.length >= 2 && title.includes(f) && !isTeiruCompoundQuery) {
       if (!(teiruTopic && !isTeiruSurface(f) && !isTeiruKey(f))) {
@@ -536,11 +954,12 @@ const RulesService = (() => {
         };
       }
     }
+    }
 
     // 文法鍵／〜後綴
     let bestKey = null;
     for (const k of keys) {
-      if (!formHitsKey(f, k)) continue;
+      if (!formHitsKey(f, k, { sentenceMode })) continue;
       const bare = String(k).replace(/^[〜～~\-–—]+/, "");
       if (!bestKey || bare.length > String(bestKey).replace(/^[〜～~\-–—]+/, "").length) {
         bestKey = k;
@@ -964,7 +1383,14 @@ const RulesService = (() => {
     const candidates = [];
 
     // 先做句中動詞鏈分析；ている 類拆成「て形活用」+「句型接辭」兩層
-    const sentenceAnalysis = Analyzer.analyzeSentence(query);
+    let sentenceAnalysis = { verbs: [], tokens };
+    try {
+      if (typeof Analyzer !== "undefined" && Analyzer.analyzeSentence) {
+        sentenceAnalysis = Analyzer.analyzeSentence(query) || sentenceAnalysis;
+      }
+    } catch (err) {
+      console.warn("[searchSentence] analyzeSentence", err);
+    }
     for (const v of sentenceAnalysis.verbs || []) {
       if (!v.text || v.start == null) continue;
 
@@ -1128,7 +1554,6 @@ const RulesService = (() => {
       let cEnd = rawCand.end;
       let cForm = rawCand.form;
       const cBonus = rawCand.bonus || 0;
-      const cNoExpand = rawCand.noExpand;
       const cAnalysis = rawCand.analysis;
 
       if (cStart == null || cEnd == null || cEnd <= cStart) continue;
@@ -1177,36 +1602,10 @@ const RulesService = (() => {
         }
       }
 
-      // 句型命中：強制縮成接辭區間（绝不含動詞語幹）
-      let spanStart = cStart;
-      let spanEnd = cEnd;
-      const isPatternHit =
-        hit.layer === "pattern" ||
-        isPatternRule(hit.rule) ||
-        (hit.matchedKey && (isTeiruKey(hit.matchedKey) || TEIRU_SUFFIXES.includes(hit.matchedKey)));
-
-      if (isPatternHit) {
-        const shrunk = shrinkSpanToPatternOnly(query, spanStart, spanEnd, hit);
-        spanStart = shrunk.start;
-        spanEnd = shrunk.end;
-      } else if (!cNoExpand && hit.matchedKey && !isTeiruKey(hit.matchedKey)) {
-        const covering = (sentenceAnalysis.verbs || []).find(
-          (v) => v.start <= cStart && v.end >= cEnd
-        );
-        if (covering && !locateTeiruInSurface(covering.text)) {
-          spanStart = covering.start;
-          spanEnd = covering.end;
-        }
-      }
-
-      // 活用命中若誤蓋到 ている 接辭，縮回て形前
-      if (!isPatternHit) {
-        const slice = query.slice(spanStart, spanEnd);
-        const loc = locateTeiruInSurface(slice);
-        if (loc && loc.teForm && loc.localStart > 0) {
-          spanEnd = spanStart + loc.localStart;
-        }
-      }
+      // 一律縮成文法標記：不含語幹、不含句尾っけ／かな
+      const shrunk = shrinkSpanToGrammarMarker(query, cStart, cEnd, hit);
+      const spanStart = shrunk.start;
+      const spanEnd = shrunk.end;
 
       if (spanEnd <= spanStart) continue;
       if (overlaps(spanStart, spanEnd)) continue;
@@ -1348,44 +1747,207 @@ const RulesService = (() => {
     return rules;
   }
 
+  function splitJaMarkers(raw) {
+    return String(raw || "")
+      .split(/[／\/、,＋+]/)
+      .map((s) =>
+        String(s || "")
+          .replace(/^[〜～~\-–—]+/, "")
+          .replace(/形$/, "")
+          .trim()
+      )
+      .filter(Boolean);
+  }
+
+  /** 一段動詞／五段動詞 是類型標籤，不是句中要對上的助詞／語尾 */
+  const VERB_CLASS_LABELS = new Set([
+    "一段動詞",
+    "五段動詞",
+    "サ変動詞",
+    "カ変動詞",
+    "一段",
+    "五段",
+    "サ変",
+    "カ変",
+    "サ變",
+    "カ變",
+  ]);
+
+  function isVerbClassLabel(raw) {
+    return VERB_CLASS_LABELS.has(normalizeToken(raw));
+  }
+
   /**
-   * API 盤點項目是否已有本地規則
+   * 動詞類型辨認卡的群組（一段／五段／サ変／カ変）。
+   * 活用卡（ます、て形）即使標題出現「一段」也不算。
+   */
+  function verbGroupIdentity(name, category) {
+    const n = String(name || "").trim();
+    const c = String(category || "").trim();
+    if (!n && !c) return "";
+    if (
+      /ます|て形|た形|ない形|ている|音便|假定|たい|過去丁寧|使役|受身|可能/.test(n) &&
+      !/辨認一段|辨認五段|辨認サ変|辨認カ変/.test(n)
+    ) {
+      return "";
+    }
+    const looksType =
+      c === "動詞類型" ||
+      /辨認一段|辨認五段|辨認サ変|辨認カ変|一段動詞|五段動詞|サ変動詞|カ変動詞/.test(n) ||
+      /^(?:一段|五段|サ変|カ変|サ變|カ變)(?:動詞)?(?:[（(].*[）)])?$/.test(n);
+    if (!looksType) return "";
+    if (/五段/.test(n)) return "godan";
+    if (/一段/.test(n)) return "ichidan";
+    if (/サ[変變]/.test(n)) return "sahen";
+    if (/カ[変變]/.test(n)) return "kahen";
+    return "";
+  }
+
+  function markersFromItem(item, name) {
+    const out = [];
+    const add = (raw) => {
+      for (const p of splitJaMarkers(raw)) {
+        if (isVerbClassLabel(p)) continue;
+        if (!out.includes(p)) out.push(p);
+      }
+    };
+    if (item && typeof item === "object") add(item.nameJa || item.nameKo);
+    const parts = parseTitleParenParts(normalizeRuleTitle(name) || name);
+    if (parts?.inner) add(parts.inner);
+    return out;
+  }
+
+  function zhFromItem(item, name) {
+    const z = item && typeof item === "object" ? String(item.nameZh || "").trim() : "";
+    if (z) return normalizeToken(z);
+    const parts = parseTitleParenParts(normalizeRuleTitle(name) || name);
+    if (parts?.outer) return normalizeToken(parts.outer);
+    return "";
+  }
+
+  /** て／で、ている／てる 視為同標記；た 與 ました 不可互換 */
+  function markersCompatible(itemMarkers, ruleMarkers) {
+    if (!itemMarkers.length || !ruleMarkers.length) return null;
+    const variants = (m) => {
+      const s = new Set([normalizeToken(m)]);
+      if (m === "て") s.add("で");
+      if (m === "で") s.add("て");
+      if (m === "ている" || m === "てる") {
+        s.add("ている");
+        s.add("てる");
+        s.add("でいる");
+        s.add("でる");
+      }
+      if (m === "てもいい") s.add("でもいい");
+      if (m === "てください") s.add("でください");
+      return s;
+    };
+    for (const im of itemMarkers) {
+      const iv = variants(im);
+      for (const rm of ruleMarkers) {
+        const rv = variants(rm);
+        for (const a of iv) {
+          if (a && rv.has(a)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 句中片段能否當成此規則的日文標記。
+   * 描いた／た 不能對「ました」；ました 可以對「ます」規則以外的「ました」卡。
+   */
+  function spanCompatibleWithRuleMarkers(span, ruleMarkers) {
+    const s = normalizeToken(span);
+    if (!s || !ruleMarkers.length) return null;
+    if (/ました/.test(s)) {
+      return ruleMarkers.some((rm) => rm === "ました" || rm === "ませんでした" || rm === "ます");
+    }
+    for (const rm of ruleMarkers) {
+      if (s === rm) return true;
+      if (rm === "ました" || rm === "ませんでした") {
+        if (s === "ました" || s === "ませんでした") return true;
+        continue;
+      }
+      if (rm === "ます") {
+        if (/^(ます|ません|ました|ませんでした)$/.test(s) || /ます$/.test(s)) return true;
+        continue;
+      }
+      const needles = expandTitleMarkerNeedles(rm).sort((a, b) => b.length - a.length);
+      for (const n of needles) {
+        if (!n) continue;
+        if ((n === "した" || n === "た") && /ました$/.test(s) && s !== n) continue;
+        if (s === n || (s.endsWith(n) && n.length >= 1)) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * API 盤點項目是否已有本地規則。
+   * 必須功能名與日文標記都對得上：過去（た）不可套到 過去丁寧（ました）。
    * @returns {{ owned: boolean, rule: object|null, score: number }}
    */
   function findMatchingRule(nameOrItem) {
-    const name =
-      typeof nameOrItem === "string"
-        ? nameOrItem
-        : nameOrItem?.name || nameOrItem?.title || "";
-    const nameJa =
-      typeof nameOrItem === "object"
-        ? nameOrItem?.nameJa || nameOrItem?.nameKo || nameOrItem?.span || ""
-        : "";
-    const nameZh =
-      typeof nameOrItem === "object" ? nameOrItem?.nameZh || "" : "";
-    const n = normalizeToken(name);
-    const ja = normalizeToken(nameJa);
-    const zh = normalizeToken(nameZh);
+    const item = typeof nameOrItem === "object" && nameOrItem ? nameOrItem : null;
+    const name = item ? item.name || item.title || "" : String(nameOrItem || "");
+    const n = normalizeToken(normalizeRuleTitle(name) || name);
+    const nameKey = canonicalRuleTitleKey(name);
+    const normalizedNameKey = canonicalRuleTitleKey(normalizeRuleTitle(name) || name);
+    const itemZh = zhFromItem(item, name);
+    const itemMarkers = markersFromItem(item, name);
+    const span = String(item?.span || "").trim();
+    const itemGroup = verbGroupIdentity(name, item?.category);
 
     let best = null;
     let bestScore = 0;
     for (const rule of rules) {
-      let score = 0;
       const title = normalizeToken(rule.title || "");
-      const expl = normalizeToken(rule.explanation || "");
-      if (n && title === n) score += 50;
-      if (n && title.includes(n)) score += 22;
-      if (zh && title.includes(zh) && zh.length >= 2) score += 16;
-      if (ja && title.includes(ja) && ja.length >= 1) score += 18;
-      // 說明含日文標記可加分，但門檻提高
-      if (ja && ja.length >= 2 && expl.includes(ja)) score += 6;
-      if (nameOrItem?.category && rule.category === nameOrItem.category) score += 3;
+      const titleNorm = normalizeToken(normalizeRuleTitle(rule.title || ""));
+      const titleKey = canonicalRuleTitleKey(rule.title || "");
+      const normalizedTitleKey = canonicalRuleTitleKey(normalizeRuleTitle(rule.title || ""));
+      const ruleMarkers = titleMarkersFromRule(rule);
+      const ruleZh = normalizeToken(parseTitleParenParts(rule.title || "")?.outer || "");
+      const exact = Boolean(
+        (nameKey && titleKey === nameKey) ||
+          (normalizedNameKey && normalizedTitleKey === normalizedNameKey) ||
+          (n && (title === n || (titleNorm && titleNorm === n)))
+      );
+      const zhEq = Boolean(itemZh && ruleZh && itemZh === ruleZh);
+      const ruleGroup = verbGroupIdentity(rule.title, rule.category);
+      const groupEq = Boolean(itemGroup && ruleGroup && itemGroup === ruleGroup);
+      const mOk = markersCompatible(itemMarkers, ruleMarkers);
+      // 動詞類型卡的 span 是動詞本身（述べ／知る），不是「一段動詞」標記。
+      const spanOk = groupEq ? null : spanCompatibleWithRuleMarkers(span, ruleMarkers);
+      // 「卡片是否存在」與「API 給的句中 span 是否合理」是兩件事。
+      // 標題已精確命中、或同一動詞類型辨認卡（辨認一段 ↔ 一段動詞）
+      // 就代表規則卡已建立，不可因 span／類型標籤不相容而改判未建立。
+      // 非精確命中仍使用日文標記與 span 防誤套，例如「過去」不可近似
+      // 命中「過去丁寧」。
+      const sameCard = exact || groupEq;
+
+      if (!sameCard && mOk === false) continue;
+      if (!sameCard && spanOk === false) continue;
+      // 「過去」是「過去丁寧」的子字串，不可當命中
+      if (!exact && !zhEq && !groupEq && itemZh && ruleZh && ruleZh.includes(itemZh) && itemZh !== ruleZh) {
+        continue;
+      }
+
+      let score = 0;
+      if (exact) score += 50;
+      if (groupEq) score += 50;
+      if (zhEq) score += 24;
+      if (mOk === true) score += 22;
+      if (spanOk === true) score += 8;
+      if (item?.category && rule.category === item.category) score += 3;
+
       if (score > bestScore) {
         bestScore = score;
         best = rule;
       }
     }
-    if (bestScore >= 16) return { owned: true, rule: best, score: bestScore };
+    if (bestScore >= 40) return { owned: true, rule: best, score: bestScore };
     return { owned: false, rule: null, score: bestScore };
   }
 
@@ -1418,13 +1980,19 @@ const RulesService = (() => {
       if (s && !needles.includes(s)) needles.push(s);
     };
 
-    if (/ます|丁寧|丁寧形|masu/i.test(blob)) {
+    if (/ました|ませんでした/.test(blob)) {
+      ["ませんでした", "ました"].forEach(add);
+    } else if (/ます|丁寧|丁寧形|masu/i.test(blob)) {
       ["ませんでした", "ました", "ません", "ます"].forEach(add);
     }
     if (/て形|て形|て$|で形/.test(blob) && !/ている|てる|ても/.test(blob)) {
       ["って", "て", "で"].forEach(add);
     }
-    if (/た形|過去(?!否定)|た$/.test(blob) && !/たら/.test(blob)) {
+    if (
+      /た形|過去(?!否定)|た$/.test(blob) &&
+      !/たら/.test(blob) &&
+      !/ました|ませんでした/.test(blob)
+    ) {
       ["った", "んだ", "いた", "いだ", "した", "た", "だ"].forEach(add);
     }
     if (/ない|否定/.test(blob) && !/ません/.test(blob)) {
@@ -1467,13 +2035,53 @@ const RulesService = (() => {
       end > start &&
       end <= src.length
     ) {
-      const key = `${start}:${end}`;
+      let s0 = start;
+      let e0 = end;
+      const group = verbGroupIdentity(item?.name || item?.title, item?.category);
+      if (!group) {
+        const markers = markersFromItem(item, item?.name || item?.title).sort(
+          (a, b) => b.length - a.length
+        );
+        const slice = src.slice(start, end);
+        if (markers.length) {
+          let narrowed = false;
+          for (const m of markers) {
+            if (!m || isVerbClassLabel(m)) continue;
+            const needles = expandTitleMarkerNeedles(m);
+            const pool = needles.length ? needles : [m];
+            for (const n of pool.sort((a, b) => b.length - a.length)) {
+              if (!n) continue;
+              if (slice === n) {
+                narrowed = true;
+                break;
+              }
+              if (slice.length > n.length && slice.endsWith(n)) {
+                s0 = end - n.length;
+                e0 = end;
+                narrowed = true;
+                break;
+              }
+              const idx = slice.lastIndexOf(n);
+              if (idx >= 0) {
+                s0 = start + idx;
+                e0 = s0 + n.length;
+                narrowed = true;
+                break;
+              }
+            }
+            if (narrowed) break;
+          }
+          // 給了區間但標記不在裡面（苦い＋連用修飾（く）、ほろりと＋副詞化（に））→ 不上色
+          if (!narrowed) return [];
+        }
+      }
+      const key = `${s0}:${e0}`;
       seen.add(key);
       out.push({
-        start,
-        end,
-        text: src.slice(start, end),
-        needle: String(item?.span || src.slice(start, end)),
+        start: s0,
+        end: e0,
+        text: src.slice(s0, e0),
+        needle: String(item?.span || src.slice(s0, e0)),
       });
       return out;
     }
@@ -1504,6 +2112,7 @@ const RulesService = (() => {
       if (!needle || needle.length < 1) continue;
       // 抽象標籤不可當針
       if (/^(ます形|て形|た形|ない形|ば形|辞書形|意向形|活用|丁寧形)$/.test(needle)) continue;
+      if (isVerbClassLabel(needle)) continue;
       let from = 0;
       while (from < src.length) {
         const idx = src.indexOf(needle, from);
@@ -1649,13 +2258,22 @@ const RulesService = (() => {
     const sel = String(selectedText || "").trim();
     const minScore = Number.isFinite(opts.minScore) ? opts.minScore : 8;
     const maxSuggest = Number.isFinite(opts.maxSuggest) ? opts.maxSuggest : 8;
-    const all = getAll();
+    const all = getAll().filter((r) => !isSupplementaryUsage(r));
     if (!sel) {
       return { suggestions: [], rest: all };
     }
 
     const selNorm = normalizeToken(sel);
     const scored = [];
+
+    let formInfo = null;
+    if (typeof Analyzer !== "undefined" && typeof Analyzer.detectForm === "function") {
+      try {
+        formInfo = Analyzer.detectForm(sel);
+      } catch {
+        formInfo = null;
+      }
+    }
 
     const localResult = typeof search === "function" ? search(sel) : null;
     const localById = new Map();
@@ -1680,7 +2298,7 @@ const RulesService = (() => {
       { re: /てください|でください/, titleRe: /てください|依頼/, score: 24, reason: "てください" },
       { re: /たい|たかった/, titleRe: /たい|希望/, score: 20, reason: "たい形" },
       { re: /ない|なかった|ぬ/, titleRe: /ない|否定/, score: 16, reason: "否定" },
-      { re: /たら|れば|えば|けば/, titleRe: /たら|ば|假定|条件/, score: 18, reason: "假定" },
+      { re: /たら|れば|えば|けば|げば|せば|てば|ねば|べば|めば/, titleRe: /たら|ば|假定|条件/, score: 18, reason: "假定" },
       { re: /よう|おう|こう|そう/, titleRe: /意向|う形|よう/, score: 16, reason: "意向形" },
       { re: /だ|です|である/, titleRe: /だ|です|断定|指定/, score: 14, reason: "断定" },
     ];
@@ -1730,6 +2348,39 @@ const RulesService = (() => {
         if (b.test(rule)) {
           score += b.score;
           reasons.push(b.reason);
+        }
+      }
+
+      // 標題括號詞尾（て形（て）／丁寧（ます））：圈選完整活用形也要建議
+      const markers = titleMarkersFromRule(rule);
+      let markerHit = null;
+      for (const marker of markers) {
+        const hit = spanHitsTitleMarker(selNorm, marker);
+        if (!hit) continue;
+        if (!markerHit || (hit.exact && !markerHit.exact) || hit.needle.length > markerHit.needle.length) {
+          markerHit = { ...hit, marker };
+        }
+      }
+      if (markerHit) {
+        score += markerHit.exact ? 26 : 22 + Math.min(4, markerHit.needle.length);
+        reasons.push(
+          markerHit.exact
+            ? `詞尾「${markerHit.needle}」`
+            : `詞尾對應「${markerHit.marker}」`
+        );
+      }
+
+      if (formInfo?.formName && formInfo.formName !== "未知" && selNorm.length >= 2) {
+        const title = String(rule.title || "");
+        if (title.includes(formInfo.formName)) {
+          score += 18;
+          reasons.push(`偵測為${formInfo.formName}`);
+        } else if (
+          formInfo.ending &&
+          markers.some((m) => m === formInfo.ending || expandTitleMarkerNeedles(m).includes(formInfo.ending))
+        ) {
+          score += 16;
+          reasons.push(`偵測詞尾「${formInfo.ending}」`);
         }
       }
 
@@ -1788,12 +2439,18 @@ const RulesService = (() => {
     tokenize,
     filterList,
     normalizeRule,
+    normalizeRuleTitle,
     findMatchingRule,
+    verbGroupIdentity,
     locateApiItemInText,
     enrichInventoryWithAnalyzer,
     cleanSpanNeedle,
     isPatternRule,
     isConjugationRule,
     rankRulesForSpan,
+    parseStructureChain,
+    parseStructureBranches,
+    parseStructureTokens,
+    structureRoleOfPart,
   };
 })();

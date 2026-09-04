@@ -41,3 +41,4 @@
 [18:11:07] 200 index.html (13751)
 [18:11:07] 200 css\styles.css (20993)
 [18:11:07] 200 vendor\kuromoji.js (307967)
+[13:31:46] ERROR bind http://127.0.0.1:8765/ : You cannot call a method on a null-valued expression.
