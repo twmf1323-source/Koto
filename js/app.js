@@ -7789,10 +7789,16 @@ const App = (() => {
   /** 量測頂欄高度，讓句中 sticky 列精準貼在下方 */
   function syncAppHeaderHeight() {
     const header = document.querySelector(".app-header");
-    if (!header) return;
-    const h = Math.ceil(header.getBoundingClientRect().height);
-    if (h > 0) {
-      document.documentElement.style.setProperty("--app-header-h", `${h}px`);
+    if (header) {
+      const h = Math.ceil(header.getBoundingClientRect().height);
+      if (h > 0) {
+        document.documentElement.style.setProperty("--app-header-h", `${h}px`);
+      }
+    }
+    const vv = window.visualViewport;
+    const vh = Math.round((vv && vv.height) || window.innerHeight);
+    if (vh > 0) {
+      document.documentElement.style.setProperty("--vvh", `${vh}px`);
     }
   }
 
@@ -7852,6 +7858,10 @@ const App = (() => {
     updateProjectModeUI();
     syncAppHeaderHeight();
     window.addEventListener("resize", () => syncAppHeaderHeight());
+    window.addEventListener("orientationchange", () => syncAppHeaderHeight());
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", () => syncAppHeaderHeight());
+    }
     setView("lookup");
     renderLookupResult(null);
     updateRuleCount();

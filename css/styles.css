@@ -3524,7 +3524,7 @@ body.bulk-import-running #btn-project-bulk-clear {
   padding: 0.15rem 0 0.25rem;
 }
 /* 查詢頁：大標題 + 副標題（單行）+ 右側模式開關 */
-#view-lookup > .view-header.view-header-lookup {
+#view-lookup .view-header.view-header-lookup {
   margin-top: -0.15rem;
   margin-bottom: 0.7rem;
 }
@@ -4092,10 +4092,15 @@ body.bulk-import-running #btn-project-bulk-clear {
 }
 .sentence-text-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
+  margin-top: 0.08rem;
+}
+.sentence-text-actions .btn-sentence-speak,
+.sentence-text-actions .btn-sentence-select-edit {
+  margin-top: 0;
 }
 .btn-sentence-select-edit {
   flex-shrink: 0;
@@ -4104,7 +4109,7 @@ body.bulk-import-running #btn-project-bulk-clear {
   justify-content: center;
   width: 2.15rem;
   height: 2.15rem;
-  margin-top: 0.08rem;
+  margin-top: 0;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -4674,5 +4679,204 @@ a,
   .app-header {
     padding-left: max(1rem, env(safe-area-inset-left));
     padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
+
+/* ===== Phone · portrait + landscape ===== */
+.lookup-compose {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 17px;
+  }
+  .app-shell {
+    padding-top: 0.85rem;
+    padding-left: max(0.85rem, env(safe-area-inset-left));
+    padding-right: max(0.85rem, env(safe-area-inset-right));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  .app-header {
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: calc(0px - max(0.85rem, env(safe-area-inset-left)));
+    margin-right: calc(0px - max(0.85rem, env(safe-area-inset-right)));
+    margin-bottom: 0.75rem;
+    padding-top: 0.55rem;
+    padding-bottom: 0.5rem;
+    padding-left: max(0.85rem, env(safe-area-inset-left));
+    padding-right: max(0.85rem, env(safe-area-inset-right));
+  }
+  .brand {
+    gap: 0.55rem;
+  }
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+  }
+  .brand h1 {
+    font-size: 1.05rem;
+  }
+  .view-header h2,
+  .view-header-lookup .view-header-main h2 {
+    font-size: 1.18rem;
+  }
+  .view-header-lookup .lookup-mode-status {
+    display: none;
+  }
+  .lookup-mode-toolbar {
+    flex-wrap: wrap;
+  }
+  .lookup-bar textarea,
+  .lookup-input-wrap textarea {
+    height: 4.1rem;
+    min-height: 4.1rem;
+  }
+  .sentence-board {
+    position: static;
+    top: auto;
+    max-height: min(32dvh, 13.5rem);
+  }
+  .project-mode-bar {
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.55rem;
+  }
+  .filter-bar input,
+  #view-history .filter-bar input {
+    min-width: 0;
+  }
+  .kv-grid {
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  }
+  .modal-panel,
+  .modal-panel.projects-modal-panel,
+  .modal-panel.project-entries-modal-panel {
+    width: 100%;
+    max-height: min(92dvh, var(--vvh, 92dvh));
+    min-height: 0;
+  }
+  .app-footer {
+    margin-top: 1.25rem;
+  }
+  .toast {
+    bottom: max(0.85rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (orientation: landscape) and (max-height: 540px) and (min-width: 600px) {
+  html {
+    font-size: 16px;
+  }
+  .app-shell {
+    padding-top: 0.55rem;
+    padding-left: max(0.85rem, env(safe-area-inset-left));
+    padding-right: max(0.85rem, env(safe-area-inset-right));
+    padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+  }
+  .app-header {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: calc(0px - max(0.85rem, env(safe-area-inset-left)));
+    margin-right: calc(0px - max(0.85rem, env(safe-area-inset-right)));
+    margin-bottom: 0.5rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    padding-left: max(0.85rem, env(safe-area-inset-left));
+    padding-right: max(0.85rem, env(safe-area-inset-right));
+  }
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+  .brand h1 {
+    font-size: 0.98rem;
+  }
+  .brand-sub {
+    display: none;
+  }
+  .nav-btn {
+    min-height: 40px;
+    padding: 0.28rem 0.7rem;
+  }
+  .view-header {
+    margin-bottom: 0.45rem;
+  }
+  .view-header h2,
+  .view-header-lookup .view-header-main h2 {
+    font-size: 1.05rem;
+  }
+  .view-header-lookup .lookup-mode-status {
+    display: none;
+  }
+  .view-header-lookup-top {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .lookup-mode-toolbar {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    flex-wrap: wrap;
+  }
+  .lookup-bar {
+    margin-bottom: 0;
+  }
+  .lookup-bar textarea,
+  .lookup-input-wrap textarea {
+    height: 3.35rem;
+    min-height: 3.35rem;
+    max-height: 7rem;
+  }
+  .project-mode-bar {
+    padding: 0.4rem 0.65rem;
+    margin-bottom: 0.4rem;
+  }
+  .app-footer {
+    margin-top: 0.85rem;
+    padding-top: 0.65rem;
+  }
+  .toast,
+  .ai-job-bar {
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+  .modal-overlay {
+    padding-top: max(0.45rem, env(safe-area-inset-top));
+    padding-right: max(0.45rem, env(safe-area-inset-right));
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+    padding-left: max(0.45rem, env(safe-area-inset-left));
+  }
+  .modal-panel,
+  .modal-panel.projects-modal-panel,
+  .modal-panel.project-entries-modal-panel {
+    width: min(960px, 100%);
+    max-height: min(94dvh, var(--vvh, 94dvh));
+    min-height: 0;
+  }
+
+  #view-lookup:not(:has(#project-bulk-import:not(.hidden):not(.is-compact))) {
+    display: grid;
+    grid-template-columns: minmax(16.25rem, 38%) minmax(0, 1fr);
+    gap: 0.55rem 0.85rem;
+    align-items: start;
+  }
+  #view-lookup:not(:has(#project-bulk-import:not(.hidden):not(.is-compact))) #lookup-result {
+    min-height: 8rem;
+    max-height: calc(var(--vvh, 100dvh) - var(--app-header-h, 3.1rem) - 0.9rem);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    position: sticky;
+    top: calc(var(--app-header-h, 3.1rem) + 0.25rem);
+  }
+  #view-lookup:not(:has(#project-bulk-import:not(.hidden):not(.is-compact))) .sentence-board {
+    position: sticky;
+    top: 0;
+    max-height: min(38dvh, 11rem);
   }
 }
