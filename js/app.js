@@ -194,6 +194,9 @@ const App = (() => {
   }
 
   function setView(view) {
+    if (view !== "lookup" && typeof closeRuleViewModal === "function") {
+      closeRuleViewModal();
+    }
     state.view = view;
     $$(".nav-btn").forEach((btn) => {
       if (view === "form") {
@@ -395,68 +398,14 @@ const App = (() => {
     const apiHl = buildApiHighlight(q, inv);
     const isLocal = inv.mode === "local" || inv.source === "local";
 
-    // 已收錄規則卡：順序＝句中首次套用順序（legend 已排好）；補充用法在最後、特殊色、無句中色
-    const ownedHits = [];
-    const seen = new Set();
-    for (const h of apiHl.legend || []) {
-      if (!h.owned || !h.ruleId || seen.has(h.ruleId)) continue;
-      const rule = RulesService.getById(h.ruleId);
-      if (!rule) continue;
-      seen.add(h.ruleId);
-      const isSupp =
-        h.supplementary ||
-        h.color === "usage" ||
-        (typeof RulesService.isSupplementaryUsage === "function" &&
-          RulesService.isSupplementaryUsage(rule));
-      const ci = Number(h.color);
-      ownedHits.push({
-        rule,
-        colorIndex: isSupp
-          ? "usage"
-          : Number.isFinite(ci) && h.color !== "missing"
-            ? ci % 8
-            : 0,
-        hasSpan: isSupp ? null : h.hasSpan,
-        order: ownedHits.length + 1,
-        supplementary: isSupp,
-      });
-    }
-    const ownedHtml = ownedHits.length
-      ? `<section class="panel" id="lookup-owned-rules">
-          <div class="panel-head">
-            <h3>已收錄的規則</h3>
-            <span class="badge badge-local">${ownedHits.length} 筆 · 與句中同色</span>
-          </div>
-          <p class="panel-note lookup-edit-hint">API／本地可能誤判。操作列：編輯 · 手動定位／重新定位 · 本句移除。選字可套用／疊加規則。<strong>補充用法</strong>為琥珀標、固定在後、不句中上色。</p>
-          <div class="match-list">
-            ${ownedHits
-              .map((h) =>
-                renderRuleCard(h.rule, {
-                  badge: null,
-                  colorIndex: h.colorIndex,
-                  mode: "lookup",
-                  hasSpan: h.supplementary ? null : h.hasSpan === true,
-                })
-              )
-              .join("")}
-          </div>
-        </section>`
-      : `<section class="panel" id="lookup-owned-rules">
-          <div class="panel-head">
-            <h3>已收錄的規則</h3>
-            <span class="badge badge-local">0 筆</span>
-          </div>
-          <p class="panel-note">本句尚無已套用的筆記本規則。可在上方<strong>選取文字</strong>後「套用規則」手動加上。</p>
-        </section>`;
-
     const pinHtml = renderApiSentenceBoard(q, apiHl.spans, apiHl.legend, {
       vocab: Array.isArray(inv.vocab) ? inv.vocab : [],
       source: isLocal ? "local" : "api",
       tokens: Array.isArray(inv.tokens) ? inv.tokens : [],
       inventory: inv,
     });
-    // 外層 stack 含下方列表高度，sticky 才不會「捲過就消失」
-    box.innerHTML = `<div class="lookup-result-stack">${pinHtml}<div class="lookup-result-body">${ownedHtml}${inventoryHtml(
+    // 規則卡改為點句中色塊／圖例彈出，結果區只留尚未收錄
+    box.innerHTML = `<div class="lookup-result-stack">${pinHtml}<div class="lookup-result-body">${inventoryHtml(
       inv,
       q
     )}</div></div>`;
@@ -1622,6 +1571,7 @@ const App = (() => {
     // modal / 浮層開啟時不導航
     if (!$("#vocab-edit-modal")?.classList.contains("hidden")) return false;
     if (!$("#rule-pick-modal")?.classList.contains("hidden")) return false;
+    if (!$("#rule-view-modal")?.classList.contains("hidden")) return false;
     if (!$("#projects-modal")?.classList.contains("hidden")) return false;
     if (!$("#project-entries-modal")?.classList.contains("hidden")) return false;
     if (!$("#sel-apply-pop")?.classList.contains("hidden")) return false;
@@ -1651,6 +1601,7 @@ const App = (() => {
   function isBlockingOverlayOpen() {
     if (!$("#vocab-edit-modal")?.classList.contains("hidden")) return true;
     if (!$("#rule-pick-modal")?.classList.contains("hidden")) return true;
+    if (!$("#rule-view-modal")?.classList.contains("hidden")) return true;
     if (!$("#projects-modal")?.classList.contains("hidden")) return true;
     if (!$("#project-entries-modal")?.classList.contains("hidden")) return true;
     if (!$("#sel-apply-pop")?.classList.contains("hidden")) return true;
@@ -1661,6 +1612,7 @@ const App = (() => {
   function dismissTransientUi() {
     if (!$("#vocab-edit-modal")?.classList.contains("hidden")) closeVocabEditModal();
     if (!$("#rule-pick-modal")?.classList.contains("hidden")) closeRulePickModal();
+    if (!$("#rule-view-modal")?.classList.contains("hidden")) closeRuleViewModal();
     if (!$("#sel-apply-pop")?.classList.contains("hidden")) {
       hideSelApplyPop();
       state.selApply = null;
@@ -1722,6 +1674,7 @@ const App = (() => {
     if (dest === "projects") {
       if (!$("#vocab-edit-modal")?.classList.contains("hidden")) closeVocabEditModal();
       if (!$("#rule-pick-modal")?.classList.contains("hidden")) closeRulePickModal();
+      if (!$("#rule-view-modal")?.classList.contains("hidden")) closeRuleViewModal();
       if (!$("#sel-apply-pop")?.classList.contains("hidden")) {
         hideSelApplyPop();
         state.selApply = null;
@@ -5131,19 +5084,24 @@ const App = (() => {
         : esc(query);
 
     const legendHtml = (legend || [])
-      .filter((h) => !h.supplementary && h.color !== "usage")
       .map((h) => {
-        const sw =
-          h.color === "missing" ? "gram-hl gram-hl-missing" : `gram-hl gram-hl-${h.color}`;
-        // 已收錄不顯示標籤（靠左側色點即可）；未建立仍標示
-        const badge = h.owned
-          ? ""
-          : `<span class="badge badge-missing-hl">未建立</span>`;
-        const btn = h.owned
-          ? `<button type="button" class="legend-link" data-scroll-rule="${esc(h.ruleId)}">${esc(h.name)}</button>`
-          : `<button type="button" class="legend-link legend-link-missing" data-create-inv-idx="${h.invIdx}">${esc(h.name)}</button>`;
+        const isSupp = h.supplementary || h.color === "usage";
+        const sw = isSupp
+          ? "gram-hl gram-hl-usage"
+          : h.color === "missing"
+            ? "gram-hl gram-hl-missing"
+            : `gram-hl gram-hl-${h.color}`;
+        const badge = isSupp
+          ? `<span class="badge badge-usage">補充</span>`
+          : h.owned
+            ? ""
+            : `<span class="badge badge-missing-hl">未建立</span>`;
+        const btn =
+          h.owned || isSupp
+            ? `<button type="button" class="legend-link" data-scroll-rule="${esc(h.ruleId)}">${esc(h.name)}</button>`
+            : `<button type="button" class="legend-link legend-link-missing" data-create-inv-idx="${h.invIdx}">${esc(h.name)}</button>`;
         return `<li class="legend-item"><span class="legend-swatch ${sw}"></span>${btn}${badge}${
-          h.owned && !h.hasSpan ? `<span class="legend-count">（句中未定位）</span>` : ""
+          h.owned && !isSupp && !h.hasSpan ? `<span class="legend-count">（句中未定位）</span>` : ""
         }</li>`;
       })
       .join("");
@@ -5155,7 +5113,7 @@ const App = (() => {
       : tokens.length
         ? "API 標記 · 學校文法切詞"
         : "API 標記";
-    const editHint = `<p class="sentence-edit-hint">選取文字或<strong>點已上色片段</strong>可套用／疊加規則；下方規則卡操作列的<strong>手動定位</strong>可指定句中片段。右側<strong>+補充</strong>可加入不句中上色的補充用法。</p>`;
+    const editHint = `<p class="sentence-edit-hint"><strong>點句中色塊或圖例</strong>查看規則；選取文字可套用／疊加。右側<strong>+補充</strong>加入不句中上色的補充用法。</p>`;
 
     return `
       <div class="sentence-board" id="sentence-board"${sentenceBoardPosHideAttr()}>
@@ -6639,6 +6597,107 @@ const App = (() => {
     });
   }
 
+  function collectRuleIdsFromMark(mark) {
+    if (!mark) return [];
+    const cycle = String(mark.dataset.cycleRuleIds || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (cycle.length) return [...new Set(cycle)];
+    const id = String(mark.dataset.scrollRule || mark.dataset.ruleId || "").trim();
+    return id ? [id] : [];
+  }
+
+  function ruleViewLookupOpts(ruleId) {
+    const rule = RulesService.getById(ruleId);
+    if (!rule) return null;
+    const isSupp =
+      typeof RulesService.isSupplementaryUsage === "function" &&
+      RulesService.isSupplementaryUsage(rule);
+    let hasSpan = false;
+    let colorIndex = isSupp ? "usage" : 0;
+    const q = String(state.lastQuery || "");
+    const inv = state.lastInventory;
+    if (q && inv) {
+      const hl = buildApiHighlight(q, inv);
+      const h = (hl.legend || []).find((x) => String(x.ruleId) === String(ruleId));
+      if (h) {
+        hasSpan = h.hasSpan === true;
+        if (isSupp || h.supplementary || h.color === "usage") colorIndex = "usage";
+        else if (h.color !== "missing" && Number.isFinite(Number(h.color))) {
+          colorIndex = Number(h.color) % 8;
+        }
+      }
+    }
+    return {
+      rule,
+      colorIndex,
+      mode: "lookup",
+      hasSpan: isSupp ? null : hasSpan,
+    };
+  }
+
+  function bindRuleViewCardExtras(root) {
+    (root || document).querySelectorAll("[data-detach-rule]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        closeRuleViewModal();
+        detachRuleFromCurrentResult(btn.dataset.detachRule);
+      });
+    });
+    (root || document).querySelectorAll("[data-locate-rule]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeRuleViewModal();
+        enterLocateMode(btn.dataset.locateRule);
+      });
+    });
+  }
+
+  function openRuleViewModal(ruleIds, opts = {}) {
+    const ids = [...new Set((ruleIds || []).map((x) => String(x || "").trim()).filter(Boolean))];
+    const modal = $("#rule-view-modal");
+    const stack = $("#rule-view-stack");
+    const titleEl = $("#rule-view-modal-title");
+    const subEl = $("#rule-view-modal-sub");
+    if (!modal || !stack) return false;
+    const cards = [];
+    for (const id of ids) {
+      const meta = ruleViewLookupOpts(id);
+      if (!meta) continue;
+      cards.push(
+        renderRuleCard(meta.rule, {
+          colorIndex: meta.colorIndex,
+          mode: meta.mode,
+          hasSpan: meta.hasSpan,
+        })
+      );
+    }
+    if (!cards.length) return false;
+    hideSelApplyPop();
+    if (titleEl) titleEl.textContent = cards.length > 1 ? `規則（${cards.length}）` : "規則";
+    if (subEl) {
+      const span = String(opts.spanText || "").trim();
+      if (span && cards.length > 1) subEl.textContent = `「${span}」疊加 ${cards.length} 則`;
+      else if (span) subEl.textContent = `句中：「${span}」`;
+      else if (cards.length > 1) subEl.textContent = `此片段疊加 ${cards.length} 則規則`;
+      else subEl.textContent = "點關閉或空白處返回句子";
+    }
+    stack.innerHTML = cards.join("");
+    bindRuleCardActions(stack);
+    bindRuleViewCardExtras(stack);
+    modal.classList.remove("hidden");
+    return true;
+  }
+
+  function closeRuleViewModal() {
+    const modal = $("#rule-view-modal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    modal.classList.add("hidden");
+    const stack = $("#rule-view-stack");
+    if (stack) stack.innerHTML = "";
+  }
+
   function onGrammarMarkClick(e, mark) {
     if (selectionIsNonEmptyInSentence()) {
       e.preventDefault();
@@ -6647,6 +6706,12 @@ const App = (() => {
     }
     e.preventDefault();
     e.stopPropagation();
+    if (!mark.classList.contains("gram-hl-missing")) {
+      const ids = collectRuleIdsFromMark(mark);
+      if (ids.length && openRuleViewModal(ids, { spanText: String(mark.textContent || "").trim() })) {
+        return;
+      }
+    }
     const range = getMarkRangeInQuery(mark);
     if (!range?.text) {
       const id = mark.dataset.scrollRule || mark.dataset.ruleId || "";
@@ -6892,22 +6957,9 @@ const App = (() => {
     });
   }
 
-  /** 查詢頁「已收錄」區塊內定位規則卡 */
+  /** 查詢頁改為彈出規則卡 */
   function scrollToOwnedRuleOnLookup(ruleId) {
-    const id = String(ruleId || "").trim();
-    if (!id) return false;
-    const root = $("#lookup-result");
-    if (!root) return false;
-    const card =
-      root.querySelector(`.rule-card[data-id="${CSS.escape(id)}"]`) ||
-      root.querySelector(`#rule-${CSS.escape(id)}`);
-    if (!card) return false;
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
-    card.classList.remove("rule-card-flash");
-    void card.offsetWidth;
-    card.classList.add("rule-card-flash");
-    setTimeout(() => card.classList.remove("rule-card-flash"), 1400);
-    return true;
+    return openRuleViewModal([ruleId]);
   }
 
   /**
@@ -7609,6 +7661,10 @@ const App = (() => {
     $("#rule-pick-modal")?.addEventListener("click", (e) => {
       if (e.target === e.currentTarget) closeRulePickModal();
     });
+    $("#btn-rule-view-close")?.addEventListener("click", () => closeRuleViewModal());
+    $("#rule-view-modal")?.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeRuleViewModal();
+    });
     $("#rule-pick-filter")?.addEventListener("input", () => renderRulePickList());
     const dismissSelApplyIfOutside = (e) => {
       const pop = $("#sel-apply-pop");
@@ -7705,6 +7761,10 @@ const App = (() => {
         }
         if (!$("#rule-pick-modal")?.classList.contains("hidden")) {
           closeRulePickModal();
+          return;
+        }
+        if (!$("#rule-view-modal")?.classList.contains("hidden")) {
+          closeRuleViewModal();
           return;
         }
         if (!$("#sel-apply-pop")?.classList.contains("hidden")) {

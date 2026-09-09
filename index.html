@@ -13,7 +13,7 @@
       content="日語文法筆記本 — API 文法盤點；動詞類型／活用三格；專案與查詢歷史"
     />
     <title>Koto · 日語文法筆記本</title>
-    <link rel="stylesheet" href="css/styles.css?v=portrait1" />
+    <link rel="stylesheet" href="css/styles.css?v=portrait2" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -778,6 +778,27 @@
       </div>
     </div>
 
+    <div
+      id="rule-view-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rule-view-modal-title"
+    >
+      <div class="modal-panel rule-view-modal-panel">
+        <header class="modal-header">
+          <div>
+            <h2 id="rule-view-modal-title">規則</h2>
+            <p class="modal-sub" id="rule-view-modal-sub">點句中色塊或圖例查看</p>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm modal-close" id="btn-rule-view-close" aria-label="關閉">
+            關閉
+          </button>
+        </header>
+        <div id="rule-view-stack" class="rule-view-stack"></div>
+      </div>
+    </div>
+
     <script src="vendor/kuromoji.js"></script>
     <script src="js/storage.js?v=idb1"></script>
     <script src="js/tokenizer-ja.js?v=local-rerun1"></script>
@@ -786,6 +807,6 @@
     <script src="js/dict.js?v=no-jmdict1"></script>
     <script src="js/school-parse.js?v=school-parse4"></script>
     <script src="js/ai.js?v=supp1"></script>
-    <script src="js/app.js?v=ipad3"></script>
+    <script src="js/app.js?v=rulepop1"></script>
   </body>
 </html>
