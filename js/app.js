@@ -4951,10 +4951,6 @@ const App = (() => {
   function sentenceTextBlockHtml(innerHtml) {
     return `<div class="sentence-text-row">
       <p class="sentence-text" id="sentence-text">${innerHtml}</p>
-      <div class="sentence-text-actions">
-        ${isCoarsePointer() ? sentenceSelectEditButtonHtml() : ""}
-        ${sentenceSpeakButtonHtml()}
-      </div>
     </div>`;
   }
 

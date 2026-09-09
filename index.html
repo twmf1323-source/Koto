@@ -13,7 +13,7 @@
       content="日語文法筆記本 — API 文法盤點；動詞類型／活用三格；專案與查詢歷史"
     />
     <title>Koto · 日語文法筆記本</title>
-    <link rel="stylesheet" href="css/styles.css?v=portrait3" />
+    <link rel="stylesheet" href="css/styles.css?v=portrait4" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -169,6 +169,25 @@
                 aria-label="再看歷史上一句"
               >
                 <span class="lookup-hist-btn-icon" aria-hidden="true">→</span>
+              </button>
+            </div>
+            <div class="lookup-sentence-tools sentence-text-actions" id="lookup-sentence-tools">
+              <button
+                type="button"
+                class="btn-sentence-select-edit"
+                data-sentence-select-edit
+                title="選字編輯：點擊句中的字來套用規則或編輯單字"
+                aria-label="選字編輯"
+                aria-pressed="false"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </button>
+              <button type="button" class="btn-sentence-speak" data-speak-sentence title="朗讀整句" aria-label="朗讀整句">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path fill="currentColor" d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 8.04v7.93A4.47 4.47 0 0 0 16.5 12zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                </svg>
               </button>
             </div>
             <button type="submit" class="btn btn-primary">查詢</button>
@@ -807,6 +826,6 @@
     <script src="js/dict.js?v=no-jmdict1"></script>
     <script src="js/school-parse.js?v=school-parse4"></script>
     <script src="js/ai.js?v=supp1"></script>
-    <script src="js/app.js?v=swipe1"></script>
+    <script src="js/app.js?v=toolbar1"></script>
   </body>
 </html>
