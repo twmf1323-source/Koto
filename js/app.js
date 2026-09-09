@@ -398,14 +398,65 @@ const App = (() => {
     const apiHl = buildApiHighlight(q, inv);
     const isLocal = inv.mode === "local" || inv.source === "local";
 
+    const ownedHits = [];
+    const seen = new Set();
+    for (const h of apiHl.legend || []) {
+      if (!h.owned || !h.ruleId || seen.has(h.ruleId)) continue;
+      const rule = RulesService.getById(h.ruleId);
+      if (!rule) continue;
+      seen.add(h.ruleId);
+      const isSupp =
+        h.supplementary ||
+        h.color === "usage" ||
+        (typeof RulesService.isSupplementaryUsage === "function" &&
+          RulesService.isSupplementaryUsage(rule));
+      const ci = Number(h.color);
+      ownedHits.push({
+        rule,
+        colorIndex: isSupp
+          ? "usage"
+          : Number.isFinite(ci) && h.color !== "missing"
+            ? ci % 8
+            : 0,
+        hasSpan: isSupp ? null : h.hasSpan,
+        supplementary: isSupp,
+      });
+    }
+    const ownedHtml = ownedHits.length
+      ? `<section class="panel lookup-owned-rules" id="lookup-owned-rules">
+          <div class="panel-head">
+            <h3>已收錄的規則</h3>
+            <span class="badge badge-local">${ownedHits.length} 筆 · 與句中同色</span>
+          </div>
+          <p class="panel-note lookup-edit-hint">API／本地可能誤判。操作列：編輯 · 手動定位／重新定位 · 本句移除。選字可套用／疊加規則。<strong>補充用法</strong>為琥珀標、固定在後、不句中上色。</p>
+          <div class="match-list">
+            ${ownedHits
+              .map((h) =>
+                renderRuleCard(h.rule, {
+                  badge: null,
+                  colorIndex: h.colorIndex,
+                  mode: "lookup",
+                  hasSpan: h.supplementary ? null : h.hasSpan === true,
+                })
+              )
+              .join("")}
+          </div>
+        </section>`
+      : `<section class="panel lookup-owned-rules" id="lookup-owned-rules">
+          <div class="panel-head">
+            <h3>已收錄的規則</h3>
+            <span class="badge badge-local">0 筆</span>
+          </div>
+          <p class="panel-note">本句尚無已套用的筆記本規則。可在上方<strong>選取文字</strong>後「套用規則」手動加上。</p>
+        </section>`;
+
     const pinHtml = renderApiSentenceBoard(q, apiHl.spans, apiHl.legend, {
       vocab: Array.isArray(inv.vocab) ? inv.vocab : [],
       source: isLocal ? "local" : "api",
       tokens: Array.isArray(inv.tokens) ? inv.tokens : [],
       inventory: inv,
     });
-    // 規則卡改為點句中色塊／圖例彈出，結果區只留尚未收錄
-    box.innerHTML = `<div class="lookup-result-stack">${pinHtml}<div class="lookup-result-body">${inventoryHtml(
+    box.innerHTML = `<div class="lookup-result-stack">${pinHtml}<div class="lookup-result-body">${ownedHtml}${inventoryHtml(
       inv,
       q
     )}</div></div>`;
@@ -1493,6 +1544,35 @@ const App = (() => {
 
   let touchSession = false;
 
+  function isPortraitReadingLayout() {
+    try {
+      return window.matchMedia("(orientation: portrait) and (max-width: 1024px)").matches;
+    } catch {
+      return false;
+    }
+  }
+
+  /** 豎屏進入專案時不要自動聚焦輸入欄（避免鍵盤把查詢列撐開） */
+  function blurPortraitLookupCompose() {
+    if (!isPortraitReadingLayout()) return;
+    const blur = () => {
+      const ae = document.activeElement;
+      if (!ae || ae === document.body) return;
+      if (
+        ae.id === "lookup-input" ||
+        ae.id === "project-bulk-input" ||
+        ae.closest?.(".lookup-compose, #project-bulk-import, .lookup-bar")
+      ) {
+        ae.blur();
+      }
+    };
+    blur();
+    requestAnimationFrame(blur);
+    setTimeout(blur, 0);
+    setTimeout(blur, 80);
+    setTimeout(blur, 240);
+  }
+
   function isCoarsePointer() {
     if (touchSession) return true;
     try {
@@ -2245,6 +2325,7 @@ const App = (() => {
       syncProjectBulkImport();
       showToast(`已進入「${p.name}」· 可貼上文本一次匯入`, "success");
     }
+    blurPortraitLookupCompose();
   }
 
   function leaveProject() {
@@ -4951,6 +5032,10 @@ const App = (() => {
   function sentenceTextBlockHtml(innerHtml) {
     return `<div class="sentence-text-row">
       <p class="sentence-text" id="sentence-text">${innerHtml}</p>
+      <div class="sentence-text-actions">
+        ${isCoarsePointer() ? sentenceSelectEditButtonHtml() : ""}
+        ${sentenceSpeakButtonHtml()}
+      </div>
     </div>`;
   }
 
@@ -5149,7 +5234,7 @@ const App = (() => {
       : tokens.length
         ? "API 標記 · 學校文法切詞"
         : "API 標記";
-    const editHint = `<p class="sentence-edit-hint"><strong>點句中色塊或圖例</strong>查看規則；選取文字可套用／疊加。右側<strong>+補充</strong>加入不句中上色的補充用法。</p>`;
+    const editHint = `<p class="sentence-edit-hint"><strong>點句中單字</strong>看釋義；<strong>點下方圖例</strong>查看規則。選取文字可套用／疊加。右側<strong>+補充</strong>加入不句中上色的補充用法。</p>`;
 
     return `
       <div class="sentence-board" id="sentence-board"${sentenceBoardPosHideAttr()}>
@@ -6691,6 +6776,7 @@ const App = (() => {
   }
 
   function openRuleViewModal(ruleIds, opts = {}) {
+    if (!isPortraitReadingLayout()) return false;
     const ids = [...new Set((ruleIds || []).map((x) => String(x || "").trim()).filter(Boolean))];
     const modal = $("#rule-view-modal");
     const stack = $("#rule-view-stack");
@@ -6738,6 +6824,10 @@ const App = (() => {
     if (selectionIsNonEmptyInSentence()) {
       e.preventDefault();
       e.stopPropagation();
+      return;
+    }
+    if (isPortraitReadingLayout()) {
+      // 豎屏：點句中字只看單字；文法改點下方圖例
       return;
     }
     e.preventDefault();
@@ -6993,9 +7083,23 @@ const App = (() => {
     });
   }
 
-  /** 查詢頁改為彈出規則卡 */
+  /** 查詢頁：豎屏彈出規則卡；電腦／橫屏捲到下方規則卡 */
   function scrollToOwnedRuleOnLookup(ruleId) {
-    return openRuleViewModal([ruleId]);
+    const id = String(ruleId || "").trim();
+    if (!id) return false;
+    if (isPortraitReadingLayout()) return openRuleViewModal([id]);
+    const root = $("#lookup-result");
+    if (!root) return false;
+    const card =
+      root.querySelector(`.rule-card[data-id="${CSS.escape(id)}"]`) ||
+      root.querySelector(`#rule-${CSS.escape(id)}`);
+    if (!card) return false;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.remove("rule-card-flash");
+    void card.offsetWidth;
+    card.classList.add("rule-card-flash");
+    setTimeout(() => card.classList.remove("rule-card-flash"), 1400);
+    return true;
   }
 
   /**

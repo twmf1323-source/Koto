@@ -340,7 +340,7 @@ code {
 }
 
 .lookup-sentence-tools {
-  display: flex;
+  display: none !important;
   flex-direction: row;
   align-items: center;
   gap: 0.3rem;
@@ -5392,9 +5392,19 @@ a,
   }
 
   .lookup-sentence-tools {
+    display: flex !important;
     grid-area: tools;
     align-self: center;
     justify-content: flex-start;
+  }
+
+  .sentence-text-row > .sentence-text-actions {
+    display: none !important;
+  }
+
+  #lookup-owned-rules,
+  .lookup-owned-rules {
+    display: none !important;
   }
 
   .lookup-bar > .btn-primary {
@@ -5546,24 +5556,7 @@ a,
   }
 }
 
-/* 查詢句：整欄展開、詞不拆行、操作鈕不與歌詞同行 */
-.sentence-board {
-  max-height: none;
-  overflow: visible;
-}
-.sentence-text-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.4rem;
-}
-.sentence-text-row .sentence-text {
-  flex: none;
-  width: 100%;
-}
-.sentence-text-actions {
-  align-self: flex-end;
-  margin-top: 0;
-}
+/* 詞不拆行（直式／橫式都適用） */
 .word-tip,
 .sentence-text mark.gram-hl {
   display: inline-block;
