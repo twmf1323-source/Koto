@@ -7800,6 +7800,9 @@ const App = (() => {
     if (vh > 0) {
       document.documentElement.style.setProperty("--vvh", `${vh}px`);
     }
+    const layoutH = window.innerHeight;
+    const kbdOpen = !!(vv && layoutH - vv.height > 96);
+    document.documentElement.classList.toggle("is-kbd-open", kbdOpen);
   }
 
   async function init() {
