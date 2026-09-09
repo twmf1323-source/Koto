@@ -5437,12 +5437,17 @@ a,
   }
 
   #view-lookup #lookup-result .sentence-board {
-    position: sticky;
-    top: 0;
-    z-index: 8;
-    max-height: min(38dvh, 13.5rem);
+    position: static;
+    top: auto;
+    z-index: auto;
+    max-height: none;
+    overflow: visible;
     margin-bottom: 0.65rem;
     padding: 0.5rem 0.7rem 0.55rem;
+  }
+
+  #api-inventory-slot.panel-suggest {
+    display: none !important;
   }
 
   #view-lookup #lookup-result .sentence-text {
@@ -5527,4 +5532,30 @@ a,
     border-radius: 16px 16px 0 0;
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
+}
+
+/* 查詢句：整欄展開、詞不拆行、操作鈕不與歌詞同行 */
+.sentence-board {
+  max-height: none;
+  overflow: visible;
+}
+.sentence-text-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+.sentence-text-row .sentence-text {
+  flex: none;
+  width: 100%;
+}
+.sentence-text-actions {
+  align-self: flex-end;
+  margin-top: 0;
+}
+.word-tip,
+.sentence-text mark.gram-hl {
+  display: inline-block;
+  white-space: nowrap;
+  max-width: 100%;
+  vertical-align: baseline;
 }

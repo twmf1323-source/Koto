@@ -1442,6 +1442,46 @@ const App = (() => {
     else recallPreviousHistorySentence();
   }
 
+  function bindLookupSwipeNav() {
+    const root = $("#lookup-result");
+    if (!root || root.dataset.swipeBound === "1") return;
+    root.dataset.swipeBound = "1";
+    let x0 = 0;
+    let y0 = 0;
+    let pid = null;
+    const ignore = (el) =>
+      !!(
+        el &&
+        el.closest &&
+        el.closest(
+          "button, a, input, textarea, select, .sentence-legend, .locate-mode-bar, .inv-sentence-translation, .word-tip-pop, .sel-apply-pop"
+        )
+      );
+    const reset = () => {
+      pid = null;
+    };
+    root.addEventListener("pointerdown", (e) => {
+      if (pid != null) return;
+      if (e.pointerType === "mouse") return;
+      if (ignore(e.target)) return;
+      pid = e.pointerId;
+      x0 = e.clientX;
+      y0 = e.clientY;
+    });
+    root.addEventListener("pointerup", (e) => {
+      if (pid !== e.pointerId) return;
+      const dx = e.clientX - x0;
+      const dy = e.clientY - y0;
+      reset();
+      if (Math.abs(dx) < 64) return;
+      if (Math.abs(dy) > Math.abs(dx) * 0.65) return;
+      if (selectionIsNonEmptyInSentence()) return;
+      if (dx < 0) onLookupSeqNext();
+      else onLookupSeqPrev();
+    });
+    root.addEventListener("pointercancel", reset);
+  }
+
   /** 是否在可編輯欄位中（方向鍵應留給游標移動） */
   function isEditableKeyTarget(el) {
     if (!el || el === document.body) return false;
@@ -7575,6 +7615,7 @@ const App = (() => {
     $("#history-filter")?.addEventListener("input", () => renderHistory());
     $("#btn-lookup-seq-prev")?.addEventListener("click", () => onLookupSeqPrev());
     $("#btn-lookup-seq-next")?.addEventListener("click", () => onLookupSeqNext());
+    bindLookupSwipeNav();
 
     $("#btn-projects-modal-close")?.addEventListener("click", () => closeProjectsModal());
     $("#projects-modal")?.addEventListener("click", (e) => {
