@@ -5071,3 +5071,431 @@ a,
     max-height: min(38dvh, 11rem);
   }
 }
+
+/* ===== 豎屏閱讀排版 · 手機／直式平板（≤1024） =====
+   目標：畫面鎖在可視高度，輸入區查完收合，句子貼在結果頂，
+   文法卡／列表在剩餘高度裡單獨捲動，不必跟整頁搶。 */
+@media (orientation: portrait) and (max-width: 1024px) {
+  :root {
+    --phone-tab-h: 3.65rem;
+  }
+
+  html,
+  body {
+    height: var(--vvh, 100dvh);
+    max-height: var(--vvh, 100dvh);
+    overflow: hidden;
+  }
+
+  body {
+    min-height: 0;
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding-top: 0.55rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-bottom: calc(var(--phone-tab-h) + env(safe-area-inset-bottom, 0px) + 0.35rem);
+  }
+
+  .app-header {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: calc(0px - max(0.75rem, env(safe-area-inset-left)));
+    margin-right: calc(0px - max(0.75rem, env(safe-area-inset-right)));
+    margin-bottom: 0.45rem;
+    padding-top: max(0.35rem, env(safe-area-inset-top, 0px));
+    padding-bottom: 0.35rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+
+  .brand-sub,
+  .app-footer,
+  .nav-label-full,
+  .view-header-lookup .view-header-main,
+  .view-header-lookup .lookup-mode-status,
+  .lookup-mode-toolbar-title,
+  .lookup-edit-hint,
+  .sentence-edit-hint {
+    display: none;
+  }
+
+  .app-main .view-header p {
+    display: none;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 0.78rem;
+  }
+
+  .brand h1 {
+    font-size: 1rem;
+  }
+
+  .main-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 42;
+    flex: none;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 0.08rem;
+    min-width: 0;
+    width: auto;
+    overflow: visible;
+    padding: 0.22rem 0.18rem calc(0.22rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 88%, #fff);
+    backdrop-filter: blur(16px) saturate(1.12);
+    -webkit-backdrop-filter: blur(16px) saturate(1.12);
+    box-shadow: 0 -8px 24px color-mix(in srgb, var(--ink) 8%, transparent);
+    transition: transform 0.18s ease;
+  }
+
+  .nav-btn {
+    flex: 1 1 0;
+    flex-shrink: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 0.22rem 0.06rem;
+    border-radius: 10px;
+    font-size: clamp(0.7rem, 2.6vw, 0.8rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-btn[hidden] {
+    display: none !important;
+  }
+
+  .nav-btn.active,
+  .nav-btn.active:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .nav-btn .api-status-dot {
+    position: absolute;
+    top: 0.28rem;
+    right: 0.18rem;
+  }
+
+  .nav-btn[data-view="settings"] {
+    position: relative;
+  }
+
+  .app-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .app-main > .view:not(.hidden) {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .view-header {
+    flex: 0 0 auto;
+    margin-bottom: 0.45rem;
+  }
+
+  .view-header h2 {
+    font-size: 1.12rem;
+  }
+
+  .header-actions .btn,
+  .filter-bar input,
+  .filter-bar select {
+    min-height: 44px;
+  }
+
+  .filter-bar {
+    flex: 0 0 auto;
+    flex-direction: column;
+  }
+
+  .filter-bar input,
+  .filter-bar select,
+  #view-history .filter-bar input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  #history-list,
+  #rules-list,
+  #vocab-bank-list,
+  #todos-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: 0.35rem;
+  }
+
+  #view-settings .settings-form,
+  #view-form .rule-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* 查詢：上輸入、下閱讀 */
+  #view-lookup .lookup-compose {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  #view-lookup .view-header.view-header-lookup {
+    margin-top: 0;
+    margin-bottom: 0.35rem;
+  }
+
+  .lookup-mode-toolbar {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .lookup-mode-toolbar-head {
+    display: flex;
+    order: 2;
+    margin: 0 0 0 auto;
+    min-width: 0;
+  }
+
+  .lookup-mode-chips {
+    order: 1;
+    flex: 1 1 auto;
+  }
+
+  .lookup-mode-toolbar .settings-mode-all-btn {
+    order: 2;
+    margin-left: auto;
+    min-height: 36px;
+  }
+
+  .lookup-mode-chip {
+    min-height: 40px;
+  }
+
+  .project-mode-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.45rem 0.65rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .project-mode-bar-actions {
+    justify-content: stretch;
+  }
+
+  .project-mode-bar-actions .btn {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .lookup-bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "input input"
+      "submit submit";
+    align-items: stretch;
+    gap: 0.4rem;
+    margin-bottom: 0.45rem;
+    padding: 0.45rem;
+  }
+
+  .lookup-input-wrap {
+    grid-area: input;
+    flex: none;
+    width: 100%;
+  }
+
+  .lookup-seq-nav {
+    grid-area: seq;
+    width: auto;
+    margin-left: 0;
+    justify-content: flex-start;
+    align-self: stretch;
+  }
+
+  .lookup-bar > .btn-primary {
+    grid-area: submit;
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    align-self: stretch;
+  }
+
+  .lookup-bar textarea,
+  .lookup-input-wrap textarea {
+    height: 4.6rem;
+    min-height: 4.6rem;
+    font-size: 1.02rem;
+  }
+
+  /* 有句子導覽時，查詢鈕與 ← → 同一列，少佔一列高度 */
+  .lookup-bar:has(.lookup-seq-btn:not([hidden])) {
+    grid-template-areas:
+      "input input"
+      "seq submit";
+  }
+
+  .lookup-bar:has(.lookup-seq-btn:not([hidden])) > .btn-primary {
+    width: auto;
+    min-width: 5.25rem;
+  }
+
+  /* 已有盤點結果：輸入列收成一行，把高度讓給句子與卡片 */
+  #view-lookup:has(#lookup-result .lookup-result-stack):not(:has(.lookup-compose:focus-within)) .lookup-mode-toolbar {
+    display: none;
+  }
+
+  #view-lookup:has(#lookup-result .lookup-result-stack):not(:has(.lookup-compose:focus-within)) .lookup-bar {
+    margin-bottom: 0.35rem;
+    padding: 0.35rem;
+  }
+
+  #view-lookup:has(#lookup-result .lookup-result-stack):not(:has(.lookup-compose:focus-within)) .lookup-bar textarea,
+  #view-lookup:has(#lookup-result .lookup-result-stack):not(:has(.lookup-compose:focus-within)) .lookup-input-wrap textarea {
+    height: 2.55rem;
+    min-height: 2.55rem;
+    max-height: 2.55rem;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  #view-lookup:has(#lookup-result .lookup-result-stack) #lookup-result {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: 0.25rem;
+  }
+
+  #view-lookup #lookup-result .sentence-board {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    max-height: min(38dvh, 13.5rem);
+    margin-bottom: 0.65rem;
+    padding: 0.5rem 0.7rem 0.55rem;
+  }
+
+  #view-lookup #lookup-result .sentence-text {
+    font-size: 1.12rem;
+    line-height: 1.85;
+  }
+
+  #lookup-result .rule-card {
+    scroll-margin-top: 7.5rem;
+    padding: 0.85rem 0.85rem 0.9rem;
+  }
+
+  .rule-card-actions,
+  .inventory-item .action-row {
+    flex-wrap: wrap;
+  }
+
+  .rule-card-actions .btn,
+  .inventory-item .action-row .btn {
+    flex: 1 1 auto;
+    min-height: 40px;
+  }
+
+  .kv-grid {
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  }
+
+  .modal-panel,
+  .modal-panel.projects-modal-panel,
+  .modal-panel.project-entries-modal-panel {
+    width: 100%;
+    max-height: min(92dvh, var(--vvh, 92dvh));
+    min-height: 0;
+  }
+
+  .toast,
+  .ai-job-bar {
+    bottom: calc(var(--phone-tab-h) + env(safe-area-inset-bottom, 0px) + 0.45rem);
+    width: min(96vw, 520px);
+  }
+
+  /* 鍵盤升起：藏底欄，輸入列拉高，結果讓位 */
+  html.is-kbd-open .main-nav {
+    transform: translateY(110%);
+    pointer-events: none;
+  }
+
+  html.is-kbd-open .app-shell {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  html.is-kbd-open .toast,
+  html.is-kbd-open .ai-job-bar {
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  html.is-kbd-open .lookup-bar textarea,
+  html.is-kbd-open .lookup-input-wrap textarea {
+    height: min(22dvh, 6.25rem) !important;
+    min-height: 3.4rem !important;
+    max-height: min(22dvh, 6.25rem) !important;
+  }
+
+  /* 整首匯入：結果縮短，文本區吃剩餘高度 */
+  .app-shell:has(#project-bulk-import:not(.hidden):not(.is-compact)) #lookup-result {
+    flex: 0 1 auto;
+    max-height: min(28dvh, 11rem);
+  }
+
+  .app-shell:has(#project-bulk-import:not(.hidden):not(.is-compact)) #project-bulk-import {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
