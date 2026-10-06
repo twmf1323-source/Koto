@@ -13,7 +13,7 @@
       content="日語文法筆記本 — API 文法盤點；動詞類型／活用三格；專案與查詢歷史"
     />
     <title>Koto · 日語文法筆記本</title>
-    <link rel="stylesheet" href="css/styles.css?v=portrait8" />
+    <link rel="stylesheet" href="css/styles.css?v=vocab-card1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -107,13 +107,6 @@
           <div id="project-mode-bar" class="project-mode-bar hidden">
             <div class="project-mode-bar-main">
               <span class="project-mode-badge" aria-hidden="true">專案</span>
-              <button
-                type="button"
-                class="project-mode-collection hidden"
-                id="project-mode-collection"
-                title="打開此大項的分項列表"
-              ></button>
-              <span class="project-mode-path-sep hidden" id="project-mode-path-sep" aria-hidden="true">›</span>
               <span
                 class="project-mode-name"
                 id="project-mode-name"
@@ -126,6 +119,9 @@
               <span class="project-mode-pos muted" id="project-mode-pos" role="status"></span>
             </div>
             <div class="project-mode-bar-actions">
+              <button type="button" class="btn btn-sm btn-primary" id="btn-project-vocab">
+                單字卡
+              </button>
               <button type="button" class="btn btn-sm btn-secondary" id="btn-project-entries">
                 句子列表
               </button>
@@ -206,7 +202,7 @@
                 <h3 id="project-bulk-title">一次放入歌詞／文本</h3>
                 <p class="project-bulk-lead">
                   依<strong>原本換行</strong>切成句子，空白行略過；副歌等重複句會各自佔一個編號，API 只查第一次，其餘直接套用已查過的結果。
-                  同一行有句號／逗號可先按「依句號分行」或「依逗號分行」。
+                  同一行太長可先按「AI 智慧分行」（沒有逗號句號也會依意思切開，一句最多 12 字），或「依句號分行」「依逗號分行」。
                   使用右上角查詢模式：
                   <strong id="project-bulk-mode">未啟用</strong>
                 </p>
@@ -225,6 +221,14 @@
                 尚未貼上內容
               </p>
               <div class="project-bulk-actions">
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  id="btn-project-bulk-split-ai"
+                  title="即使沒有逗號句號，也依意思切開，一句最多 12 字"
+                >
+                  AI 智慧分行
+                </button>
                 <button
                   type="button"
                   class="btn btn-ghost btn-sm"
@@ -542,10 +546,24 @@
           <section class="rule-form settings-data-panel" aria-labelledby="settings-data-heading">
             <h3 id="settings-data-heading" class="settings-panel-title">資料管理</h3>
             <p class="hint settings-data-hint">
-              備份或還原<strong>規則筆記本</strong>與<strong>專案</strong>（同一 JSON）。專案句子快照存在 IndexedDB，不受 localStorage 約 5MB 上限。重設種子只清規則與待辦，不會清除 API Key 與專案。
+              備份或還原<strong>規則筆記本</strong>與<strong>專案</strong>（同一 JSON）。專案句子存在 IndexedDB。重設種子只清規則與待辦。刪除全部會清掉自訂規則（改回內建種子）、待辦、專案、單字本與查詢歷史；API Key 保留。查詢歷史會一起清掉，否則單字本重新開啟時會再被填回來。
               形態素分析使用專案內 <code>dict/</code> 與 <code>vendor/kuromoji.js</code>。
             </p>
             <p id="settings-storage-usage" class="hint settings-data-hint" role="status"></p>
+            <p class="hint settings-data-hint" id="settings-cloud-lead">
+              <strong>雲端資料夾。</strong>
+              選 iCloud 雲端硬碟或 Google 雲端硬碟裡的一個資料夾。同步寫入
+              <code>koto-backup.json</code>（規則與專案）。API Key、待辦、單字本與查詢歷史留在這台電腦。
+              同一時間記一個資料夾。兩台電腦要對到同一份檔，請選同一個雲端裡的同一個資料夾。
+              請用 Chrome 或 Edge 開 <code>http://127.0.0.1:8765/</code>。
+            </p>
+            <p id="settings-cloud-status" class="hint settings-data-hint" role="status">正在檢查雲端資料夾…</p>
+            <div class="form-actions settings-data-actions settings-cloud-actions">
+              <button type="button" class="btn btn-secondary" id="btn-cloud-link">連結資料夾</button>
+              <button type="button" class="btn btn-secondary" id="btn-cloud-sync" disabled>同步到雲端</button>
+              <button type="button" class="btn btn-secondary" id="btn-cloud-load" disabled>從雲端載入</button>
+              <button type="button" class="btn btn-secondary" id="btn-cloud-unlink" disabled>取消連結</button>
+            </div>
             <div class="form-actions settings-data-actions">
               <button type="button" class="btn btn-secondary" id="btn-export">匯出 JSON</button>
               <button type="button" class="btn btn-secondary" id="btn-import">匯入 JSON</button>
@@ -558,6 +576,7 @@
               >
                 重設種子
               </button>
+              <button type="button" class="btn btn-danger-ghost" id="btn-clear-all-data">刪除全部</button>
             </div>
           </section>
         </section>
@@ -596,7 +615,7 @@
           <div>
             <h2 id="projects-modal-title">專案</h2>
             <p class="modal-sub" id="projects-modal-sub">
-              先選大項（如人間失格、歌詞），再進分項。句子只存在分項裡。
+              每首歌（或每章）一個分項。進入後查詢會依序編號。
             </p>
           </div>
           <button type="button" class="btn btn-ghost btn-sm modal-close" id="btn-projects-modal-close" aria-label="關閉">
@@ -604,31 +623,52 @@
           </button>
         </header>
 
-        <nav id="projects-modal-crumb" class="projects-crumb hidden" aria-label="專案位置">
-          <button type="button" class="projects-crumb-link" id="btn-projects-crumb-root">
-            全部大項
-          </button>
-          <span class="projects-crumb-sep" aria-hidden="true">›</span>
-          <span
-            id="projects-crumb-current"
-            class="projects-crumb-current"
-            spellcheck="false"
-          ></span>
-        </nav>
-
         <div class="project-create-row">
-          <label class="sr-only" for="project-new-name" id="project-new-name-label">新大項名稱</label>
+          <label class="sr-only" for="project-new-name" id="project-new-name-label">新專案名稱</label>
           <input
             id="project-new-name"
             type="text"
-            placeholder="新大項名稱，例如：人間失格、歌詞"
+            placeholder="新專案名稱，例如：某首歌"
             maxlength="80"
             autocomplete="off"
           />
-          <button type="button" class="btn btn-primary" id="btn-project-create">建立大項</button>
+          <button type="button" class="btn btn-primary" id="btn-project-create">建立專案</button>
         </div>
 
         <div id="projects-list" class="projects-list-host"></div>
+      </div>
+    </div>
+
+
+    <!-- 專案單字卡：聽歌時依歌詞順序，一次一張 -->
+    <div
+      id="vocab-card-modal"
+      class="modal-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vocab-card-modal-title"
+    >
+      <div class="modal-panel vocab-card-modal-panel">
+        <header class="modal-header">
+          <div>
+            <h2 id="vocab-card-modal-title">單字卡</h2>
+            <p class="modal-sub" id="vocab-card-modal-sub">依歌詞順序，一次一張。</p>
+          </div>
+          <div class="project-mode-bar-actions">
+            <button type="button" class="btn btn-sm btn-primary" id="btn-vocab-card-sentence">
+              句子
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm modal-close" id="btn-vocab-card-close" aria-label="關閉">
+              關閉
+            </button>
+          </div>
+        </header>
+        <div id="vocab-card-stage" class="vocab-card-stage"></div>
+        <div class="vocab-card-nav">
+          <button type="button" class="btn btn-secondary" id="btn-vocab-card-prev">上一個</button>
+          <p class="vocab-card-progress" id="vocab-card-progress" aria-live="polite"></p>
+          <button type="button" class="btn btn-primary" id="btn-vocab-card-next">下一個</button>
+        </div>
       </div>
     </div>
 
@@ -819,13 +859,13 @@
     </div>
 
     <script src="vendor/kuromoji.js"></script>
-    <script src="js/storage.js?v=idb1"></script>
+    <script src="js/storage.js?v=cloud1"></script>
     <script src="js/tokenizer-ja.js?v=local-rerun1"></script>
     <script src="js/analyzer.js?v=local-rerun1"></script>
     <script src="js/rules.js?v=rule-match3"></script>
     <script src="js/dict.js?v=no-jmdict1"></script>
     <script src="js/school-parse.js?v=school-parse4"></script>
-    <script src="js/ai.js?v=supp1"></script>
-    <script src="js/app.js?v=layout4"></script>
+    <script src="js/ai.js?v=lyric-split3"></script>
+    <script src="js/app.js?v=mode-switch1"></script>
   </body>
 </html>

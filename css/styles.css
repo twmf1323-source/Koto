@@ -689,6 +689,7 @@ body.bulk-import-running #project-bulk-input,
 body.bulk-import-running #btn-project-bulk-run,
 body.bulk-import-running #btn-project-bulk-split,
 body.bulk-import-running #btn-project-bulk-split-comma,
+body.bulk-import-running #btn-project-bulk-split-ai,
 body.bulk-import-running #btn-project-bulk-clear {
   opacity: 0.55;
   pointer-events: none;
@@ -5587,4 +5588,197 @@ a,
   white-space: nowrap;
   max-width: 100%;
   vertical-align: baseline;
+}
+
+/* 聽歌單字卡 */
+.vocab-card-modal-panel {
+  width: min(640px, 100%);
+  max-height: min(94dvh, 920px);
+  min-height: min(72dvh, 560px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.vocab-card-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.vocab-card-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 100%;
+}
+.vocab-card-seq {
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+}
+.vocab-card-word {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font);
+  font-size: clamp(2.6rem, 12vw, 4.4rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+button.vocab-card-speak {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0.12rem 0.45rem;
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button.vocab-card-word {
+  display: block;
+  width: 100%;
+  color: var(--ink);
+}
+button.vocab-card-lemma {
+  color: var(--ink-muted);
+  font-family: var(--font);
+}
+button.vocab-card-speak:active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+button.vocab-card-speak:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.vocab-card-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  text-align: center;
+}
+.vocab-card-lemma,
+.vocab-card-pos,
+.vocab-card-reading,
+.vocab-card-alts {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.95rem;
+}
+.vocab-card-reading {
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+.vocab-card-pos {
+  font-weight: 700;
+}
+.vocab-card-gloss {
+  margin: 0.15rem 0 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.vocab-card-gloss.is-empty {
+  color: var(--ink-muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.vocab-card-sentence {
+  margin: 0.2rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(232, 238, 243, 0.55);
+  font-family: var(--font);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  text-align: center;
+}
+.vocab-card-hit {
+  background: transparent;
+  color: var(--accent);
+  font-weight: 800;
+  box-shadow: inset 0 -0.35em 0 color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.vocab-card-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.vocab-card-rules-label {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+}
+.vocab-card-rule {
+  margin: 0;
+}
+.vocab-card-rule-span {
+  margin: 0 0 0.45rem;
+  font-family: var(--font);
+  font-weight: 700;
+  color: var(--accent);
+}
+.vocab-card-nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: center;
+}
+.vocab-card-nav .btn {
+  min-width: 0;
+  width: 100%;
+  min-height: 2.75rem;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+}
+.vocab-card-progress {
+  margin: 0;
+  min-width: 4.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--ink-muted);
+}
+.vocab-card-empty {
+  padding: 2rem 0.5rem;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.vocab-card-empty-title {
+  margin: 0 0 0.35rem;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  #vocab-card-modal.modal-overlay {
+    align-items: stretch;
+    padding: 0;
+  }
+  .vocab-card-modal-panel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    min-height: 0;
+    border-radius: 0;
+    border: 0;
+    padding-top: max(0.85rem, env(safe-area-inset-top));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+  .project-item-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .project-item-actions [data-proj-enter] {
+    width: 100%;
+  }
 }

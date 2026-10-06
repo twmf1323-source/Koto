@@ -1,2 +1,7 @@
-_tmp_jmdict/
+Screenshots/
+*.log
 serve.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

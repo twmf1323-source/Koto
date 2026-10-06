@@ -844,6 +844,203 @@ const AiService = (() => {
     return w;
   }
 
+  const LYRIC_SPLIT_SYSTEM = `你是日語歌詞編輯。把文本依「畫面／短語／子句」切開，讓每一行是一個完整意思單位。
+
+必須只輸出一個 JSON 物件（不要 markdown、不要圍欄、不要其他文字）：
+{"lines":["第一行","第二行"]}
+
+規則：
+1. 不要改寫、不要翻譯、不要增刪用字、不要加標點。只決定換行。原文順序與用字必須原樣保留。
+2. 空白（半形／全形空格）＝已經是句界，必須拆成不同行。
+3. 每一行最多 12 字（日文一字算 1）。超過 12 字必須再切；已 ≤12 且意思完整的行不要再切。
+4. 切在「畫面／短語交界」，不要切在修飾關係中間：
+   - 「A越しB」→ A越し ／ B（越し是修飾，後面的名詞另起一行）
+   - 「AのB」盡量整組保留（プラチナ色の海、渋滞の中）。禁止切成「プラチナ色の／海」。
+   - 「Aの中／前／後／間」是完整場所短語，切在該短語之後、下一句主語之前。
+   - 主謂句（あなたは都会へ帰る）若 ≤12 字整句保留，不要切成「あなたは／都会へ帰る」。
+5. 不要把詞從中間切斷。ている／てしまう／てもいい 保持同一行。
+6. 已有換行可當句界；不要合併意思不相接的行。
+
+正確例子：
+輸入：サングラス越しプラチナ色の海 渋滞の中あなたは都会へ帰る
+輸出：{"lines":["サングラス越し","プラチナ色の海","渋滞の中","あなたは都会へ帰る"]}`;
+
+  const PHONE_LINE_SOFT = 10;
+  const PHONE_LINE_HARD = 12;
+
+  function charLen(s) {
+    return Array.from(String(s || "")).length;
+  }
+
+  function compactSource(s) {
+    return String(s || "").replace(/\s+/g, "");
+  }
+
+  function indexAfterChars(s, count) {
+    return Array.from(String(s || "")).slice(0, Math.max(0, count)).join("").length;
+  }
+
+  function scoreMeaningCut(chars, i) {
+    const n = chars.length;
+    if (i < 3 || i > n - 2) return -1;
+    const last = chars[i - 1] || "";
+    const next = chars[i] || "";
+    const tail = chars.slice(Math.max(0, i - 5), i).join("");
+    if (last === "し" && /[てたます]/.test(next)) return -1;
+    if ((last === "て" || last === "で") && next === "い") return -1;
+    if (last === "っ" || last === "ょ" || last === "ゃ" || last === "ゅ") return -1;
+    if (last === "の") return -1;
+    let score = 0;
+    if (/[。．｡！？!?…]/.test(last)) score += 100;
+    else if (/[、，,､]/.test(last)) score += 86;
+    else if (tail.endsWith("越し") || tail.endsWith("の中") || tail.endsWith("の前") || tail.endsWith("の後") || tail.endsWith("の間")) score += 92;
+    else if (last === "中" || last === "後" || last === "前" || last === "間") score += 80;
+    else if (tail.endsWith("けれども")) score += 78;
+    else if (tail.endsWith("けれど") || tail.endsWith("ながら") || tail.endsWith("つつ")) score += 76;
+    else if (
+      tail.endsWith("けど") ||
+      tail.endsWith("のに") ||
+      tail.endsWith("ので") ||
+      tail.endsWith("から") ||
+      tail.endsWith("たら") ||
+      tail.endsWith("なら") ||
+      tail.endsWith("って")
+    ) {
+      score += 72;
+    } else if (last === "て" || last === "で") score += 58;
+    else if (last === "し" || last === "ば") score += 52;
+    else if (last === "を" || last === "に" || last === "へ") score += 28;
+    else if (last === "は" || last === "が" || last === "も") score += 18;
+    else return -1;
+    if (i <= PHONE_LINE_HARD) score += 8;
+    const dist = Math.abs(i - PHONE_LINE_SOFT);
+    score += Math.max(0, 10 - dist);
+    return score;
+  }
+
+  function findMeaningCut(s) {
+    const chars = Array.from(String(s || ""));
+    const n = chars.length;
+    if (n <= PHONE_LINE_HARD) return 0;
+    const min = 3;
+    const max = Math.min(PHONE_LINE_HARD, n - 2);
+    let bestI = 0;
+    let bestScore = 9;
+    for (let i = max; i >= min; i -= 1) {
+      const sc = scoreMeaningCut(chars, i);
+      if (sc > bestScore) {
+        bestScore = sc;
+        bestI = i;
+      }
+    }
+    return bestI ? indexAfterChars(s, bestI) : 0;
+  }
+
+  function splitOnSpaces(s) {
+    return String(s || "")
+      .split(/[\s\u3000]+/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+
+  function splitLongLineByMeaning(line) {
+    const spaced = splitOnSpaces(line);
+    if (spaced.length > 1) {
+      return spaced.flatMap((part) => splitLongLineByMeaning(part));
+    }
+    const s = spaced[0] || "";
+    if (!s) return [];
+    if (charLen(s) <= PHONE_LINE_HARD) return [s];
+    const cut = findMeaningCut(s);
+    if (!cut) {
+      const chars = Array.from(s);
+      const left = chars.slice(0, PHONE_LINE_HARD).join("");
+      const right = chars.slice(PHONE_LINE_HARD).join("");
+      return [left, ...splitLongLineByMeaning(right)];
+    }
+    const left = s.slice(0, cut).trim();
+    const right = s.slice(cut).trim();
+    if (!left || !right) return [s];
+    return [left, ...splitLongLineByMeaning(right)];
+  }
+
+  function enforcePhoneLineLength(lines) {
+    return (Array.isArray(lines) ? lines : [lines])
+      .map((x) => String(x || "").trim())
+      .filter(Boolean)
+      .flatMap((line) => splitLongLineByMeaning(line));
+  }
+
+  function chunkLyricText(text) {
+    const lines = String(text || "").split(/\r?\n/);
+    const chunks = [];
+    let buf = [];
+    let size = 0;
+    const flush = () => {
+      if (!buf.length) return;
+      chunks.push(buf.join("\n"));
+      buf = [];
+      size = 0;
+    };
+    for (const line of lines) {
+      const add = line.length + 1;
+      if (buf.length && size + add > 1400) flush();
+      buf.push(line);
+      size += add;
+    }
+    flush();
+    return chunks.length ? chunks : [String(text || "")];
+  }
+
+  function normalizeSplitLines(parsed) {
+    let arr = [];
+    if (Array.isArray(parsed)) arr = parsed;
+    else if (Array.isArray(parsed?.lines)) arr = parsed.lines;
+    else if (Array.isArray(parsed?.sentences)) arr = parsed.sentences;
+    return arr.map((x) => String(x || "").trim()).filter(Boolean);
+  }
+
+  async function splitLyricChunk(chunk) {
+    const content = await chatComplete({
+      messages: [
+        { role: "system", content: LYRIC_SPLIT_SYSTEM },
+        {
+          role: "user",
+          content: `請依畫面／短語切開，每行最多 12 字。空白必須分行。只輸出 JSON。\n\n${chunk}`,
+        },
+      ],
+      temperature: 0.15,
+      jsonObject: true,
+    });
+    return normalizeSplitLines(extractJson(content));
+  }
+
+  async function splitLyricLines(text) {
+    const raw = String(text || "");
+    if (!raw.trim()) throw new Error("請先貼上歌詞或文本");
+    const prepared = String(raw)
+      .split(/\r?\n/)
+      .flatMap((line) => splitOnSpaces(line))
+      .join("\n");
+    const chunks = chunkLyricText(prepared || raw);
+    const collected = [];
+    for (const chunk of chunks) {
+      const part = await splitLyricChunk(chunk);
+      collected.push(...part);
+    }
+    const lines = enforcePhoneLineLength(collected);
+    if (!lines.length) throw new Error("AI 沒有回傳可分行的句子");
+    const src = compactSource(raw);
+    const out = compactSource(lines.join(""));
+    if (src && out && src !== out) {
+      if (src.includes(out) || out.includes(src)) {
+        return lines;
+      }
+      throw new Error("AI 改動了原文用字，已取消套用");
+    }
+    return lines;
+  }
+
   async function testConnection() {
     const content = await chatComplete({
       messages: [
@@ -859,6 +1056,8 @@ const AiService = (() => {
     getConfig,
     completeRuleFromTitle,
     completeWordFromSurface,
+    splitLyricLines,
+    enforcePhoneLineLength,
     tokenizeSchoolGrammar,
     mapGrammarFunctions,
     inventoryBySchoolParse,
