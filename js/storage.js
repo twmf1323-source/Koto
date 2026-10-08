@@ -2392,6 +2392,24 @@ const Storage = (() => {
     return typeof window !== "undefined" && typeof window.showDirectoryPicker === "function";
   }
 
+  /** iPad／Safari 沒有資料夾控制代碼，改以分享與選檔讀寫同一份備份。 */
+  function cloudFileSyncSupported() {
+    return typeof window !== "undefined" && typeof File !== "undefined";
+  }
+
+  function markCloudFileStamp(which) {
+    const now = new Date().toISOString();
+    if (which === "load") saveCloudMeta({ loadedAt: now });
+    else saveCloudMeta({ syncedAt: now });
+    return now;
+  }
+
+  function cloudSyncMode() {
+    if (cloudFolderSupported()) return "folder";
+    if (cloudFileSyncSupported()) return "file";
+    return "none";
+  }
+
   function openCloudDb() {
     if (!idbAvailable()) return Promise.reject(new Error("這個瀏覽器沒有 IndexedDB，不能記住資料夾"));
     if (!cloudDbPromise) {
@@ -2488,6 +2506,18 @@ const Storage = (() => {
 
   async function cloudFolderStatus() {
     const meta = loadCloudMeta();
+    if (!cloudFolderSupported() && cloudFileSyncSupported()) {
+      return {
+        supported: true,
+        mode: "file",
+        linked: false,
+        name: "",
+        permission: "file",
+        syncedAt: meta.syncedAt || "",
+        loadedAt: meta.loadedAt || "",
+        fileName: CLOUD_BACKUP_FILE,
+      };
+    }
     const supported = cloudFolderSupported();
     let handle = null;
     let permission = "missing";
@@ -2509,6 +2539,7 @@ const Storage = (() => {
     }
     return {
       supported,
+      mode: "folder",
       linked: Boolean(handle),
       name: (handle && handle.name) || meta.name || "",
       permission,
@@ -2740,6 +2771,8 @@ const Storage = (() => {
     normalizeQueryKey,
     CLOUD_BACKUP_FILE,
     cloudFolderSupported,
+    cloudSyncMode,
+    markCloudFileStamp,
     cloudFolderStatus,
     ensureCloudFolderPermission,
     pickCloudFolder,

@@ -3548,17 +3548,26 @@ const App = (() => {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
+  function setCloudControl(el, hidden, disabled) {
+    if (!el) return;
+    el.hidden = hidden;
+    el.style.display = hidden ? "none" : "";
+    el.disabled = disabled;
+  }
+
   function setCloudButtons(st) {
     const link = $("#btn-cloud-link");
     const sync = $("#btn-cloud-sync");
     const load = $("#btn-cloud-load");
     const unlink = $("#btn-cloud-unlink");
+    const fileMode = st?.mode === "file";
     const supported = Boolean(st?.supported);
     const linked = Boolean(st?.linked);
-    if (link) link.disabled = !supported || state.cloudBusy;
-    if (sync) sync.disabled = !supported || !linked || state.cloudBusy;
-    if (load) load.disabled = !supported || !linked || state.cloudBusy;
-    if (unlink) unlink.disabled = !supported || !linked || state.cloudBusy;
+    const busy = Boolean(state.cloudBusy);
+    setCloudControl(link, fileMode, fileMode || !supported || busy);
+    setCloudControl(unlink, fileMode, fileMode || !supported || !linked || busy);
+    setCloudControl(sync, false, !supported || busy || (!fileMode && !linked));
+    setCloudControl(load, false, !supported || busy || (!fileMode && !linked));
   }
 
   async function refreshCloudFolderStatus() {
@@ -3571,6 +3580,16 @@ const App = (() => {
     }
     try {
       const st = await Storage.cloudFolderStatus();
+      if (st.mode === "file") {
+        const fileName = st.fileName || Storage.CLOUD_BACKUP_FILE || "koto-backup.json";
+        paintCloudFileLead(fileName);
+        let line = `以檔案同步 · ${fileName}`;
+        line += st.syncedAt ? ` · 上次同步 ${formatCloudStamp(st.syncedAt)}` : " · 尚未同步";
+        if (st.loadedAt) line += ` · 上次載入 ${formatCloudStamp(st.loadedAt)}`;
+        el.textContent = line;
+        setCloudButtons(st);
+        return;
+      }
       if (!st.supported) {
         el.textContent =
           "這個瀏覽器不能記住資料夾。請用 Chrome 或 Edge 開啟 http://127.0.0.1:8765/ ，再選 iCloud 雲端硬碟或 Google 雲端硬碟裡的資料夾。";
@@ -8422,6 +8441,134 @@ const App = (() => {
     return { rules: merged };
   }
 
+  function isCloudFileMode() {
+    return typeof Storage.cloudSyncMode === "function" && Storage.cloudSyncMode() === "file";
+  }
+
+  function paintCloudFileLead(fileName) {
+    const lead = $("#settings-cloud-lead");
+    if (!lead) return;
+    lead.innerHTML =
+      "<strong>雲端檔案。</strong> 按「同步到雲端」會分享 <code>" +
+      fileName +
+      "</code>（規則與專案）。請存進 iCloud 雲端硬碟，並取代同一份檔。按「從雲端載入」再選那一份。API Key、待辦、單字本與查詢歷史留在這台。";
+  }
+
+  function cloudBackupInput() {
+    let input = $("#cloud-backup-file");
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "file";
+      input.id = "cloud-backup-file";
+      input.accept = "application/json,.json";
+      input.hidden = true;
+      document.body.appendChild(input);
+    }
+    return input;
+  }
+
+  function downloadNamedJson(json, fileName) {
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  async function shareCloudBackupFile(json, fileName) {
+    const file = new File([json], fileName, { type: "application/json" });
+    const payload = { files: [file], title: fileName };
+    if (typeof navigator.share === "function") {
+      let allowed = true;
+      try {
+        if (typeof navigator.canShare === "function") allowed = navigator.canShare(payload);
+      } catch {
+        allowed = false;
+      }
+      if (allowed) {
+        try {
+          await navigator.share(payload);
+          return "share";
+        } catch (err) {
+          if (err && err.name === "AbortError") throw err;
+        }
+      }
+    }
+    downloadNamedJson(json, fileName);
+    return "download";
+  }
+
+  async function syncCloudByFile() {
+    const fileName = Storage.CLOUD_BACKUP_FILE || "backup.json";
+    if (
+      !confirm(
+        `會把這台的規則與專案做成 ${fileName}。請在分享表單存進 iCloud 雲端硬碟，並取代同一份檔。API Key 不會上傳。確定？`
+      )
+    ) {
+      return;
+    }
+    lockCloudButtons();
+    try {
+      if (typeof Storage.flushProjects === "function") await Storage.flushProjects();
+      const json = Storage.exportDataJSON(RulesService.getAll());
+      const how = await shareCloudBackupFile(json, fileName);
+      if (typeof Storage.markCloudFileStamp === "function") Storage.markCloudFileStamp("sync");
+      const nProj = typeof Storage.listProjects === "function" ? Storage.listProjects().length : 0;
+      const tail = nProj ? ` · ${nProj} 個專案` : "";
+      showToast(
+        how === "share"
+          ? `已交出 ${fileName}${tail}。請在「檔案」存進 iCloud 雲端硬碟，並取代同一份。`
+          : `已下載 ${fileName}${tail}。請放進 iCloud 雲端硬碟，並取代同一份。`,
+        "success"
+      );
+    } catch (err) {
+      const msg = cloudActionError(err);
+      if (msg) showToast(msg, "error");
+    } finally {
+      state.cloudBusy = false;
+      await refreshCloudFolderStatus();
+    }
+  }
+
+  function loadCloudByFile() {
+    const fileName = Storage.CLOUD_BACKUP_FILE || "backup.json";
+    if (
+      !confirm(
+        `會讀取你選的備份，與這台的規則、專案合併。同一個 id 以檔案裡的那份為準。請選 iCloud 雲端硬碟裡的 ${fileName}。確定？`
+      )
+    ) {
+      return;
+    }
+    const input = cloudBackupInput();
+    input.value = "";
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      input.onchange = null;
+      input.value = "";
+      if (!file) return;
+      lockCloudButtons();
+      try {
+        const text = await file.text();
+        await Promise.resolve(applyImportedBackup(text));
+        if (typeof Storage.markCloudFileStamp === "function") Storage.markCloudFileStamp("load");
+        if (state.view === "rules") renderRulesList();
+        updateRuleCount();
+      } catch (err) {
+        const msg = cloudActionError(err);
+        showToast("載入失敗：" + (msg || "這份檔讀不起來"), "error");
+      } finally {
+        state.cloudBusy = false;
+        await refreshCloudFolderStatus();
+      }
+    };
+    input.click();
+  }
+
   function lockCloudButtons() {
     state.cloudBusy = true;
     ["btn-cloud-link", "btn-cloud-sync", "btn-cloud-load", "btn-cloud-unlink"].forEach((id) => {
@@ -8451,6 +8598,10 @@ const App = (() => {
 
   async function syncCloudFolder() {
     if (state.cloudBusy) return;
+    if (isCloudFileMode()) {
+      await syncCloudByFile();
+      return;
+    }
     if (typeof Storage.writeCloudBackup !== "function") {
       showToast("這份頁面還沒有雲端資料夾，請重新整理", "error");
       return;
@@ -8495,6 +8646,10 @@ const App = (() => {
 
   async function loadCloudFolder() {
     if (state.cloudBusy) return;
+    if (isCloudFileMode()) {
+      loadCloudByFile();
+      return;
+    }
     if (typeof Storage.readCloudBackup !== "function") {
       showToast("這份頁面還沒有雲端資料夾，請重新整理", "error");
       return;
